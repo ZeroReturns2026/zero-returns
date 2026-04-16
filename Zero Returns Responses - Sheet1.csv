@@ -1,0 +1,23 @@
+timestamp,email,firstName,lastName,gender,height,weight,buildType,chestMeasurement,garment1_brand,garment1_product,garment1_size,garment1_fit,garment2_brand,garment2_product,garment2_size,garment2_fit,garment3_brand,garment3_product,garment3_size,garment3_fit,garment4_brand,garment4_product,garment4_size,garment4_fit,garment5_brand,garment5_product,garment5_size,garment5_fit,otherBrand,otherProduct,fitPreference,buyingHabits,returnFrequency,frustrations,likelihoodScore,additionalNotes,,,
+4/15/2026 14:07:24,test@test.com,Test,User,Male,"5'10""",170-180,Athletic,42,Nike,Dri-FIT Polo,M,Perfect fit,,,,,,,,,,,,,,,,,,,,,,,,,,,
+4/15/2026 14:24:36,console-test@test.com,Console,Test,Male,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+4/15/2026 14:36:09,direct-call@test.com,Direct,Call,Male,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+4/15/2026 14:50:38,lennoxadventures2026@gmail.com,mike,harvey,Male,6'1\,195-207,Athletic/Muscular,42,Peter Millar,featherweight,M,Perfect fit,Peter Millar,crown sport,M,Perfect fit,Holderness & Bourne,tailored fit,L,Slightly loose,,,,,,,,,,quarter zip,Slim/Fitted,A mix of all of the above,Sometimes,Inconsistent sizing across brands,5,,,,
+4/15/2026 15:42:36,mike@vpmortgage.com,Mike,Harvey,Male,6'1\,195-207,Athletic/Muscular,42,Criquet,Polo,L,Slightly loose,Bonobos,Casual button down ,M,Perfect fit,Under Armour,Casual loose,L,Slightly loose,,,,,,,,,,,Slim/Fitted,A mix of all of the above,Sometimes,Inconsistent sizing across brands,5,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+4/9/2026 21:41:53,mike@vpmortgage.com,Mike,Harvey,Male,"6'0""",191-205,Athletic / Muscular,42,Holderness & Bourne,Tailored fit ,L,Slightly loose but I wear it,B. Draddy,Crew sweatshirt,L,Perfect fit,Criquet,Polo,L,Slightly loose but I wear it,Other (type below),Southern shirt co polo,M,Perfect fit,Peter Millar,Southern comfort,M,Perfect fit,Southern shirt co,,M,Perfect fit,,Slim / Tailored,Both equally,Sometimes (2-3 in 10),"Sizes vary wildly between brands, Size charts are confusing or inaccurate, Returns are a hassle, I end up keeping clothes that do not fit well, I have given up buying certain brands online",10,Maybe
+4/10/2026 18:34:53,mirabilejoe@gmail.com,Joe,Mirabile,Male,"5'8""",161-175,Average,,Peter Millar,Polo,M,Perfect fit,Other (type below),Dress pants for work. Levi’s for Jeans,M,Perfect fit,Holderness & Bourne,Polo,M,Perfect fit,,,,,,,,,,,,,,Slim / Tailored,Online only,Rarely (1 in 10 purchases),"I end up keeping clothes that do not fit well, I stick to only 1-2 brands because I know my size",8,"Yes, happy to help"
+4/10/2026 18:59:23,hughjanus@aol.com,Tom,Connors,Non-binary,"6'1""",206-220,Athletic / Muscular,42,FootJoy,Athletic fit polo ,L,Perfect fit,Holderness & Bourne,Polo,XL,Perfect fit,Peter Millar,Crown sports polo,L,Slightly tight but I wear it,,,,,,,,,,,,,,Slim / Tailored,Mostly online with some in-store,Rarely (1 in 10 purchases),I stick to only 1-2 brands because I know my size,10,"Yes, happy to help"
+4/12/2026 19:09:10,edharvey886@gmail.com,Evan,Harvey,Male,"6'0""",241-260,Broad / Stocky,42,Johnnie-O,Quater zip,XXL,Perfect fit,Nike,Dry fit poli ,XXL,Slightly loose but I wear it,Lululemon,Pleated plant ,XXL,Slightly tight but I wear it,,,,,,,,,,,,,,Standard / Classic,In-store only,Never,Cannot try things on before buying,9,"Yes, happy to help"
+4/13/2026 8:50:19,james.p.sinnott@gmail.com,Jimmy,Sinnott,Male,"5'6""",206-220,Broad / Stocky,46,Other (type below),Fairway & Greene,L,Slightly loose but I wear it,Peter Millar,Summer Comfort,L,Slightly loose but I wear it,Holderness & Bourne,Tailored Fit,XL,Perfect fit,,,,,,,,,,,,,,Slim / Tailored,Both equally,Rarely (1 in 10 purchases),"Sizes vary wildly between brands, Size charts are confusing or inaccurate",10,"Yes, happy to help"
+4/13/2026 9:26:49,mfharvey3@gmail.com,Mike,Harvey,Male,"6'0""",191-205,Athletic / Muscular,40,Peter Millar,Southern comfort,M,Perfect fit,Polo Ralph Lauren,Rlx ,M,Perfect fit,Other (type below),Zero restriction rain coat,M,Perfect fit,Other (type below),Novus wind breaker,XL,Slightly loose but I wear it,Faherty,Short sleeve button down ,L,Perfect fit,"j crew, ",Short sleeve linen cotton blend Johnny collar,L,Perfect fit,,Slim / Tailored,Both equally,Sometimes (2-3 in 10),"Sizes vary wildly between brands, Size charts are confusing or inaccurate, Cannot try things on before buying, Returns are a hassle",10,Maybe

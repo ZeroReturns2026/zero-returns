@@ -1,0 +1,23 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "a561daa471ef47eb3ca0e5088e877b18"
+name = "Hey Tailor"
+application_url = "https://example.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2026-07"
+
+[access_scopes]
+scopes = "read_products,read_themes"
+
+[auth]
+redirect_urls = [ "https://example.com/api/auth" ]
+
+[app_proxy]
+url = "https://example.com/apps/hey-tailor"
+subpath = "hey-tailor"
+prefix = "apps"

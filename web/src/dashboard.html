@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zero Returns — Merchant Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f6f8;
+      color: #1a1a2e;
+      line-height: 1.5;
+    }
+
+    /* Header */
+    .header {
+      background: #111827;
+      color: #fff;
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+    .header h1 span { color: #34d399; }
+    .header-right {
+      font-size: 13px;
+      color: #9ca3af;
+    }
+    .header-right strong { color: #fff; }
+
+    /* Layout */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* KPI Cards */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .kpi-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+    .kpi-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #111827;
+      line-height: 1.2;
+    }
+    .kpi-sub {
+      font-size: 13px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+    .kpi-value.green { color: #059669; }
+    .kpi-value.red { color: #dc2626; }
+    .kpi-value.blue { color: #2563eb; }
+
+    /* Section Cards */
+    .section {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .section h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #111827;
+    }
+
+    /* Funnel */
+    .funnel {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin: 20px 0;
+    }
+    .funnel-step {
+      flex: 1;
+      text-align: center;
+      padding: 16px 12px;
+      position: relative;
+    }
+    .funnel-step .funnel-num {
+      font-size: 28px;
+      font-weight: 700;
+      color: #111827;
+    }
+    .funnel-step .funnel-label {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+    .funnel-step .funnel-rate {
+      font-size: 11px;
+      color: #059669;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .funnel-arrow {
+      font-size: 20px;
+      color: #d1d5db;
+      flex-shrink: 0;
+    }
+    .funnel-bar {
+      height: 6px;
+      background: #e5e7eb;
+      border-radius: 3px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .funnel-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: #34d399;
+    }
+
+    /* Chart */
+    .chart-container {
+      position: relative;
+      height: 280px;
+      width: 100%;
+    }
+
+    /* Two-column layout */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 768px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* Product Table */
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6b7280;
+      padding: 8px 12px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    tr:hover td { background: #f9fafb; }
+
+    /* Activity Feed */
+    .event-feed { max-height: 400px; overflow-y: auto; }
+    .event-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .event-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+    .event-dot.rec { background: #3b82f6; }
+    .event-dot.atc { background: #f59e0b; }
+    .event-dot.purchase { background: #10b981; }
+    .event-dot.return { background: #ef4444; }
+    .event-text {
+      font-size: 13px;
+      color: #374151;
+    }
+    .event-time {
+      font-size: 11px;
+      color: #9ca3af;
+    }
+
+    /* Return Rate Comparison */
+    .comparison-bars {
+      display: flex;
+      gap: 24px;
+      align-items: flex-end;
+      height: 200px;
+      padding-top: 20px;
+    }
+    .comparison-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100%;
+      justify-content: flex-end;
+    }
+    .comparison-bar {
+      width: 80px;
+      border-radius: 8px 8px 0 0;
+      transition: height 0.5s ease;
+    }
+    .comparison-value {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .comparison-label {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    /* Tabs */
+    .tab-bar {
+      display: flex;
+      gap: 0;
+      margin-bottom: 24px;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 14px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      border: none;
+      background: #fff;
+      color: #6b7280;
+      transition: all 0.2s;
+      border-bottom: 3px solid transparent;
+    }
+    .tab-btn:hover { background: #f9fafb; color: #111827; }
+    .tab-btn.active {
+      color: #059669;
+      border-bottom-color: #059669;
+      background: #f0fdf4;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Profile cards */
+    .profile-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
+    }
+    .profile-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border-left: 4px solid #059669;
+    }
+    .profile-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .profile-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #111827;
+    }
+    .profile-email {
+      font-size: 13px;
+      color: #6b7280;
+    }
+    .profile-meta {
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .profile-body-stats {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 10px 0;
+    }
+    .body-stat {
+      background: #f3f4f6;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      color: #374151;
+    }
+    .body-stat strong { color: #111827; }
+    .profile-stamps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .stamp {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .stamp-brand { color: #1e40af; background: #dbeafe; }
+    .stamp-size { color: #065f46; background: #d1fae5; }
+    .profiles-summary {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .profiles-summary .kpi-card { flex: 1; }
+    .profile-search {
+      width: 100%;
+      padding: 10px 16px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 16px;
+      outline: none;
+    }
+    .profile-search:focus { border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,0.1); }
+
+    /* Loading state */
+    .loading {
+      text-align: center;
+      padding: 60px;
+      color: #9ca3af;
+      font-size: 15px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #9ca3af;
+    }
+    .empty-state h3 {
+      font-size: 16px;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+    .empty-state p { font-size: 14px; }
+
+    /* Badge */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-yellow { background: #fef3c7; color: #92400e; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>Zero Returns</span> — Merchant Dashboard</h1>
+  <div class="header-right">
+    <strong id="merchant-name">Loading...</strong>
+    <div id="last-updated"></div>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="analytics" onclick="switchTab('analytics')">Analytics</button>
+    <button class="tab-btn" data-tab="profiles" onclick="switchTab('profiles')">Sizing Profiles</button>
+  </div>
+
+  <!-- Analytics Tab -->
+  <div class="tab-content active" id="tab-analytics">
+    <div id="app">
+      <div class="loading">Loading dashboard data...</div>
+    </div>
+  </div>
+
+  <!-- Profiles Tab -->
+  <div class="tab-content" id="tab-profiles">
+    <div id="profiles-app">
+      <div class="loading">Loading profiles...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(async function() {
+  const API = window.location.origin;
+  let data;
+
+  try {
+    const res = await fetch(API + '/api/conversions');
+    data = await res.json();
+  } catch (err) {
+    document.getElementById('app').innerHTML =
+      '<div class="empty-state"><h3>Cannot connect to backend</h3><p>Make sure the Zero Returns backend is running on this port.</p></div>';
+    return;
+  }
+
+  const f = data.funnel;
+  const r = data.rates;
+  const hasData = f.recommendations_shown > 0;
+
+  document.getElementById('merchant-name').textContent = 'Zero Returns';
+  document.getElementById('last-updated').textContent = 'Updated just now';
+
+  // --- Render ---
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+
+  // KPI Row
+  const kpiRow = el('div', 'kpi-row');
+  kpiRow.appendChild(kpiCard('Recommendations', f.recommendations_shown, 'blue', 'Total size recommendations served'));
+  kpiRow.appendChild(kpiCard('Add to Carts', f.add_to_carts, '', r.add_to_cart_rate + '% of recommendations'));
+  kpiRow.appendChild(kpiCard('Purchases', f.purchases, 'green', r.purchase_rate + '% conversion rate'));
+  kpiRow.appendChild(kpiCard('Returns', f.returns, 'red', f.purchases > 0 ? r.return_rate + '% return rate' : 'No purchases yet'));
+  app.appendChild(kpiRow);
+
+  // Funnel Section
+  const funnelSection = el('div', 'section');
+  funnelSection.appendChild(elH2('Conversion Funnel'));
+  if (hasData) {
+    const funnel = el('div', 'funnel');
+    funnel.appendChild(funnelStep('Recommendations', f.recommendations_shown, 100));
+    funnel.appendChild(funnelArrow());
+    funnel.appendChild(funnelStep('Add to Cart', f.add_to_carts, pct(f.add_to_carts, f.recommendations_shown)));
+    funnel.appendChild(funnelArrow());
+    funnel.appendChild(funnelStep('Purchases', f.purchases, pct(f.purchases, f.recommendations_shown)));
+    funnel.appendChild(funnelArrow());
+    funnel.appendChild(funnelStep('Kept (no return)', Math.max(0, f.purchases - f.returns), pct(Math.max(0, f.purchases - f.returns), f.recommendations_shown)));
+    funnelSection.appendChild(funnel);
+  } else {
+    funnelSection.appendChild(emptyState('No recommendations yet', 'Data will appear here once shoppers start using the sizing widget.'));
+  }
+  app.appendChild(funnelSection);
+
+  // Two-column: Chart + Return Rate Comparison
+  const grid = el('div', 'grid-2');
+
+  // Daily chart
+  const chartSection = el('div', 'section');
+  chartSection.appendChild(elH2('Daily Activity (Last 30 Days)'));
+  if (data.daily && data.daily.length > 0) {
+    const chartWrap = el('div', 'chart-container');
+    const canvas = document.createElement('canvas');
+    canvas.id = 'dailyChart';
+    chartWrap.appendChild(canvas);
+    chartSection.appendChild(chartWrap);
+  } else {
+    chartSection.appendChild(emptyState('No daily data yet', 'Chart will populate as recommendations are served over time.'));
+  }
+  grid.appendChild(chartSection);
+
+  // Return rate comparison
+  const returnSection = el('div', 'section');
+  returnSection.appendChild(elH2('Return Rate: Recommended vs Baseline'));
+  if (f.purchases > 0) {
+    const recReturnRate = f.returns_with_recommendation > 0 && f.followed_recommendation > 0
+      ? ((f.returns_with_recommendation / f.followed_recommendation) * 100).toFixed(1)
+      : '0.0';
+    const baselineRate = '22.0'; // Industry average for apparel
+    const bars = el('div', 'comparison-bars');
+    bars.appendChild(comparisonBar(baselineRate + '%', parseFloat(baselineRate), '#ef4444', 'Industry Baseline'));
+    bars.appendChild(comparisonBar(recReturnRate + '%', parseFloat(recReturnRate), '#10b981', 'Zero Returns Recommended'));
+    returnSection.appendChild(bars);
+    const note = el('p', 'kpi-sub');
+    note.style.textAlign = 'center';
+    note.style.marginTop = '16px';
+    note.textContent = 'Industry baseline: ~22% sizing-related return rate for online apparel';
+    returnSection.appendChild(note);
+  } else {
+    // Show placeholder with simulated data
+    const bars = el('div', 'comparison-bars');
+    bars.appendChild(comparisonBar('22%', 22, '#ef4444', 'Industry Baseline'));
+    bars.appendChild(comparisonBar('—', 0, '#10b981', 'Zero Returns Recommended'));
+    returnSection.appendChild(bars);
+    returnSection.appendChild(emptyState('', 'Return rate comparison will appear after purchases are tracked.'));
+  }
+  grid.appendChild(returnSection);
+  app.appendChild(grid);
+
+  // Two-column: Product breakdown + Size distribution
+  const grid2 = el('div', 'grid-2');
+
+  // Product breakdown table
+  const prodSection = el('div', 'section');
+  prodSection.appendChild(elH2('Performance by Product'));
+  if (data.products && data.products.length > 0) {
+    const wrap = el('div', 'table-wrap');
+    const table = document.createElement('table');
+    table.innerHTML = '<thead><tr><th>Product</th><th>Recs</th><th>ATCs</th><th>Purchases</th><th>Returns</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    for (const p of data.products) {
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><strong>' + esc(p.product) + '</strong></td>' +
+        '<td>' + p.recommendations + '</td>' +
+        '<td>' + p.add_to_carts + '</td>' +
+        '<td>' + p.purchases + '</td>' +
+        '<td>' + p.returns + '</td>';
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    prodSection.appendChild(wrap);
+  } else {
+    prodSection.appendChild(emptyState('No product data yet', 'Breakdown will appear as recommendations are served.'));
+  }
+  grid2.appendChild(prodSection);
+
+  // Size distribution
+  const sizeSection = el('div', 'section');
+  sizeSection.appendChild(elH2('Recommended Size Distribution'));
+  if (data.size_distribution && data.size_distribution.length > 0) {
+    const chartWrap = el('div', 'chart-container');
+    chartWrap.style.height = '240px';
+    const canvas = document.createElement('canvas');
+    canvas.id = 'sizeChart';
+    chartWrap.appendChild(canvas);
+    sizeSection.appendChild(chartWrap);
+  } else {
+    sizeSection.appendChild(emptyState('No size data yet', 'Distribution will appear as recommendations are served.'));
+  }
+  grid2.appendChild(sizeSection);
+  app.appendChild(grid2);
+
+  // Recent Activity Feed
+  const feedSection = el('div', 'section');
+  feedSection.appendChild(elH2('Recent Activity'));
+  if (data.recent_events && data.recent_events.length > 0) {
+    const feed = el('div', 'event-feed');
+    for (const evt of data.recent_events) {
+      feed.appendChild(eventItem(evt));
+    }
+    feedSection.appendChild(feed);
+  } else {
+    feedSection.appendChild(emptyState('No activity yet', 'Events will appear here as shoppers interact with the widget.'));
+  }
+  app.appendChild(feedSection);
+
+  // --- Render Charts ---
+  if (data.daily && data.daily.length > 0) {
+    renderDailyChart(data.daily);
+  }
+  if (data.size_distribution && data.size_distribution.length > 0) {
+    renderSizeChart(data.size_distribution);
+  }
+
+  // --- Chart Renderers ---
+  function renderDailyChart(daily) {
+    // Group by day
+    const days = [...new Set(daily.map(d => d.day))].sort();
+    const types = {
+      'recommendation_shown': { label: 'Recommendations', color: '#3b82f6' },
+      'add_to_cart_after_recommendation': { label: 'Add to Carts', color: '#f59e0b' },
+      'purchase_completed': { label: 'Purchases', color: '#10b981' },
+      'return_initiated': { label: 'Returns', color: '#ef4444' },
+    };
+
+    const datasets = Object.entries(types).map(([type, cfg]) => ({
+      label: cfg.label,
+      data: days.map(day => {
+        const match = daily.find(d => d.day === day && d.event_type === type);
+        return match ? match.count : 0;
+      }),
+      borderColor: cfg.color,
+      backgroundColor: cfg.color + '20',
+      borderWidth: 2,
+      tension: 0.3,
+      fill: type === 'recommendation_shown',
+      pointRadius: 3,
+    }));
+
+    new Chart(document.getElementById('dailyChart'), {
+      type: 'line',
+      data: { labels: days.map(d => formatDate(d)), datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 16 } } },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1 } },
+          x: { grid: { display: false } },
+        },
+        interaction: { intersect: false, mode: 'index' },
+      },
+    });
+  }
+
+  function renderSizeChart(sizes) {
+    const labels = sizes.map(s => s.size);
+    const counts = sizes.map(s => s.count);
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+
+    new Chart(document.getElementById('sizeChart'), {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          data: counts,
+          backgroundColor: colors.slice(0, labels.length),
+          borderWidth: 2,
+          borderColor: '#fff',
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { usePointStyle: true, padding: 12 } },
+        },
+      },
+    });
+  }
+
+  // --- Helpers ---
+  function el(tag, cls) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    return e;
+  }
+
+  function elH2(text) {
+    const h = document.createElement('h2');
+    h.textContent = text;
+    return h;
+  }
+
+  function kpiCard(label, value, colorClass, sub) {
+    const card = el('div', 'kpi-card');
+    card.innerHTML =
+      '<div class="kpi-label">' + esc(label) + '</div>' +
+      '<div class="kpi-value ' + colorClass + '">' + formatNum(value) + '</div>' +
+      '<div class="kpi-sub">' + esc(sub) + '</div>';
+    return card;
+  }
+
+  function funnelStep(label, value, pctVal) {
+    const step = el('div', 'funnel-step');
+    step.innerHTML =
+      '<div class="funnel-num">' + formatNum(value) + '</div>' +
+      '<div class="funnel-label">' + esc(label) + '</div>' +
+      (pctVal < 100 ? '<div class="funnel-rate">' + pctVal.toFixed(1) + '%</div>' : '') +
+      '<div class="funnel-bar"><div class="funnel-bar-fill" style="width:' + Math.max(2, pctVal) + '%"></div></div>';
+    return step;
+  }
+
+  function funnelArrow() {
+    const a = el('div', 'funnel-arrow');
+    a.textContent = '→';
+    return a;
+  }
+
+  function comparisonBar(label, value, color, caption) {
+    const col = el('div', 'comparison-col');
+    const maxHeight = 140;
+    const barHeight = Math.max(4, (value / 30) * maxHeight); // 30% as max scale
+    col.innerHTML =
+      '<div class="comparison-value" style="color:' + color + '">' + label + '</div>' +
+      '<div class="comparison-bar" style="height:' + barHeight + 'px;background:' + color + '"></div>' +
+      '<div class="comparison-label">' + esc(caption) + '</div>';
+    return col;
+  }
+
+  function eventItem(evt) {
+    const item = el('div', 'event-item');
+    const typeMap = {
+      'recommendation_shown': ['rec', 'Recommended'],
+      'add_to_cart_after_recommendation': ['atc', 'Added to cart'],
+      'purchase_completed': ['purchase', 'Purchased'],
+      'return_initiated': ['return', 'Returned'],
+    };
+    const [dotClass, verb] = typeMap[evt.type] || ['rec', evt.type];
+    const size = evt.payload?.recommendedSize || evt.payload?.purchasedSize || evt.payload?.returnedSize || '';
+    const product = evt.product || 'Unknown product';
+
+    item.innerHTML =
+      '<div class="event-dot ' + dotClass + '"></div>' +
+      '<div>' +
+        '<div class="event-text"><strong>' + verb + '</strong> ' +
+          (size ? '<span class="badge badge-blue">' + esc(size) + '</span> ' : '') +
+          'for ' + esc(product) + '</div>' +
+        '<div class="event-time">' + timeAgo(evt.created_at) + '</div>' +
+      '</div>';
+    return item;
+  }
+
+  function emptyState(title, desc) {
+    const d = el('div', 'empty-state');
+    d.innerHTML = (title ? '<h3>' + esc(title) + '</h3>' : '') + '<p>' + esc(desc) + '</p>';
+    return d;
+  }
+
+  function pct(num, denom) {
+    return denom > 0 ? (num / denom) * 100 : 0;
+  }
+
+  function formatNum(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return String(n);
+  }
+
+  function formatDate(d) {
+    const parts = d.split('-');
+    return parts[1] + '/' + parts[2];
+  }
+
+  function timeAgo(dateStr) {
+    if (!dateStr) return '';
+    const now = new Date();
+    const then = new Date(dateStr + 'Z');
+    const diffMs = now - then;
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return mins + 'm ago';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    const days = Math.floor(hrs / 24);
+    return days + 'd ago';
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+    );
+  }
+})();
+
+// --- Tab Switching ---
+let profilesLoaded = false;
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+
+  if (tab === 'profiles' && !profilesLoaded) {
+    profilesLoaded = true;
+    loadProfiles();
+  }
+}
+
+async function loadProfiles() {
+  const API = window.location.origin;
+  const container = document.getElementById('profiles-app');
+
+  try {
+    const res = await fetch(API + '/api/profiles');
+    const data = await res.json();
+    const profiles = data.profiles || [];
+
+    if (profiles.length === 0) {
+      container.innerHTML =
+        '<div class="empty-state">' +
+          '<h3>No sizing profiles yet</h3>' +
+          '<p>Profiles will appear here when shoppers create their Sizing Passport at <strong>/profile</strong></p>' +
+        '</div>';
+      return;
+    }
+
+    // Count stats
+    const totalItems = profiles.reduce((sum, p) => sum + (p.items ? p.items.length : 0), 0);
+    const uniqueBrands = new Set();
+    profiles.forEach(p => (p.items || []).forEach(it => uniqueBrands.add(it.brand)));
+
+    let html = '';
+
+    // Export button
+    html += '<div style="text-align:right;margin-bottom:16px;">';
+    html += '<a href="/api/profiles/export" style="display:inline-block;padding:10px 20px;background:#059669;color:#fff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;">Export to Excel</a>';
+    html += '</div>';
+
+    // Summary KPIs
+    html += '<div class="profiles-summary">';
+    html += kpiHtml('Total Profiles', profiles.length, 'green', 'Shoppers with sizing passports');
+    html += kpiHtml('Brand Stamps', totalItems, 'blue', 'Total brand/size entries');
+    html += kpiHtml('Unique Brands', uniqueBrands.size, '', 'Distinct brands across profiles');
+    html += '</div>';
+
+    // Search bar
+    html += '<input type="text" class="profile-search" id="profile-search" placeholder="Search by name or email..." oninput="filterProfiles()" />';
+
+    // Profile cards
+    html += '<div class="profile-grid" id="profile-grid">';
+    for (const p of profiles) {
+      html += profileCardHtml(p);
+    }
+    html += '</div>';
+
+    container.innerHTML = html;
+
+  } catch (err) {
+    container.innerHTML =
+      '<div class="empty-state"><h3>Cannot load profiles</h3><p>Make sure the backend is running.</p></div>';
+  }
+}
+
+function kpiHtml(label, value, colorClass, sub) {
+  return '<div class="kpi-card">' +
+    '<div class="kpi-label">' + escG(label) + '</div>' +
+    '<div class="kpi-value ' + colorClass + '">' + value + '</div>' +
+    '<div class="kpi-sub">' + escG(sub) + '</div>' +
+  '</div>';
+}
+
+function profileCardHtml(p) {
+  const name = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Anonymous';
+  const items = p.items || [];
+
+  let statsHtml = '';
+  if (p.height) statsHtml += '<span class="body-stat"><strong>Height:</strong> ' + escG(p.height) + '</span>';
+  if (p.weight) statsHtml += '<span class="body-stat"><strong>Weight:</strong> ' + escG(p.weight) + '</span>';
+  if (p.buildType) statsHtml += '<span class="body-stat"><strong>Build:</strong> ' + escG(p.buildType) + '</span>';
+  if (p.chestMeasurement) statsHtml += '<span class="body-stat"><strong>Chest:</strong> ' + escG(p.chestMeasurement) + '"</span>';
+  if (p.fitPreference && p.fitPreference !== 'standard') statsHtml += '<span class="body-stat"><strong>Fit:</strong> ' + escG(p.fitPreference) + '</span>';
+
+  let stampsHtml = '';
+  for (const it of items) {
+    const fitLabel = it.productName ? escG(it.brand) + ' — ' + escG(it.productName) : escG(it.brand);
+    stampsHtml += '<span class="stamp stamp-brand">' + fitLabel + '</span>';
+    stampsHtml += '<span class="stamp stamp-size">' + escG(it.sizeLabel) + '</span>';
+  }
+
+  const dateStr = p.updatedAt || p.createdAt || '';
+  const dateDisplay = dateStr ? new Date(dateStr + 'Z').toLocaleDateString() : '';
+
+  return '<div class="profile-card" data-search="' + escG((name + ' ' + p.email).toLowerCase()) + '">' +
+    '<div class="profile-card-header">' +
+      '<div>' +
+        '<div class="profile-name">' + escG(name) + '</div>' +
+        '<div class="profile-email">' + escG(p.email) + '</div>' +
+      '</div>' +
+      '<div class="profile-meta">' + (items.length) + ' stamp' + (items.length !== 1 ? 's' : '') +
+        (dateDisplay ? '<br>' + dateDisplay : '') +
+      '</div>' +
+    '</div>' +
+    (statsHtml ? '<div class="profile-body-stats">' + statsHtml + '</div>' : '') +
+    (stampsHtml ? '<div class="profile-stamps">' + stampsHtml + '</div>' : '') +
+  '</div>';
+}
+
+function filterProfiles() {
+  const q = document.getElementById('profile-search').value.toLowerCase().trim();
+  document.querySelectorAll('.profile-card').forEach(card => {
+    const searchText = card.getAttribute('data-search') || '';
+    card.style.display = !q || searchText.includes(q) ? '' : 'none';
+  });
+}
+
+function escG(s) {
+  return String(s || '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+  );
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "hey-tailor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shopify sizing recommendation MVP",
+  "scripts": {
+    "setup": "cd web && npm install && cd ../widget && npm install",
+    "db:migrate": "cd web && npm run migrate",
+    "db:seed": "cd web && npm run seed",
+    "sync": "cd web && npm run sync",
+    "backend": "cd web && npm run dev",
+    "widget:build": "cd widget && npm run build:copy",
+    "admin": "cd web && npm run admin",
+    "survey:import": "cd web && npm run survey:import"
+  },
+  "workspaces": [
+    "web",
+    "widget"
+  ]
+}

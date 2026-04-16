@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zero Returns — Sizing Passport</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #1e3328;
+    color: #111;
+    min-height: 100vh;
+  }
+
+  /* ── Passport cover ── */
+  .passport {
+    max-width: 420px;
+    margin: 24px auto;
+    background: #2d5033;
+    border-radius: 16px;
+    padding: 3px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .passport-inner {
+    background: #f5f0e8;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  /* ── Cover page ── */
+  .passport-cover {
+    background: linear-gradient(135deg, #2d5033 0%, #3a6b40 100%);
+    padding: 40px 24px;
+    text-align: center;
+    color: #fff;
+    position: relative;
+  }
+  .passport-cover::before {
+    content: '';
+    position: absolute;
+    top: 12px; left: 12px; right: 12px; bottom: 12px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 10px;
+    pointer-events: none;
+  }
+  .passport-emblem {
+    width: 64px; height: 64px;
+    margin: 0 auto 16px;
+    background: rgba(255,255,255,0.15);
+    border: 2.5px solid #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: 700;
+    font-family: 'Georgia', serif;
+    position: relative;
+  }
+  .passport-emblem .tag-accent {
+    position: absolute;
+    top: -4px;
+    right: -2px;
+    width: 18px;
+    height: 18px;
+    background: #c4a05a;
+    border-radius: 3px;
+    transform: rotate(15deg);
+  }
+  .passport-emblem .tag-accent::after {
+    content: '';
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 4px; height: 4px;
+    border: 1.5px solid #fff;
+    border-radius: 50%;
+  }
+  .passport-cover h1 {
+    font-size: 14px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    font-weight: 400;
+    margin-bottom: 8px;
+    color: rgba(255,255,255,0.7);
+  }
+  .passport-cover h2 {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .passport-cover .tagline {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #c4a05a;
+  }
+
+  /* ── Pages ── */
+  .passport-page {
+    padding: 24px;
+    border-bottom: 1px dashed #d0c8b0;
+    position: relative;
+  }
+  .passport-page:last-child { border-bottom: none; }
+  .passport-page::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    width: 1px;
+    height: 100%;
+    background: rgba(0,0,0,0.03);
+  }
+
+  .page-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #8a7e6b;
+    margin-bottom: 16px;
+    font-weight: 600;
+  }
+
+  /* ── Form fields ── */
+  .field { margin-bottom: 12px; }
+  .field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #8a7e6b;
+    margin-bottom: 4px;
+  }
+  .field input, .field select {
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    border-bottom: 1.5px solid #c8c0a8;
+    background: transparent;
+    font-size: 15px;
+    color: #222;
+    font-family: 'Georgia', serif;
+    transition: border-color 0.2s;
+  }
+  .field input:focus, .field select:focus {
+    outline: none;
+    border-bottom-color: #2d5033;
+  }
+  .field input::placeholder { color: #bbb; font-style: italic; }
+  .row { display: flex; gap: 16px; }
+  .row .field { flex: 1; }
+
+  /* ── Stamps area ── */
+  .stamps-area {
+    min-height: 60px;
+    position: relative;
+  }
+  .stamp {
+    display: inline-block;
+    margin: 6px 8px 6px 0;
+    padding: 10px 14px;
+    border: 2.5px solid;
+    border-radius: 4px;
+    transform: rotate(var(--rot, -2deg));
+    font-family: 'Georgia', serif;
+    position: relative;
+    opacity: 0.85;
+    transition: transform 0.2s, opacity 0.2s;
+    cursor: default;
+  }
+  .stamp:hover {
+    opacity: 1;
+    transform: rotate(0deg) scale(1.05);
+  }
+  .stamp .stamp-brand {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    display: block;
+  }
+  .stamp .stamp-detail {
+    font-size: 10px;
+    margin-top: 2px;
+    opacity: 0.8;
+  }
+  .stamp .stamp-size {
+    position: absolute;
+    top: -8px;
+    right: -6px;
+    background: #fff;
+    border: 2px solid;
+    border-color: inherit;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .stamp .remove-stamp {
+    position: absolute;
+    top: -8px;
+    left: -6px;
+    background: #fff;
+    border: 1.5px solid #ccc;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    line-height: 1;
+  }
+  .stamp:hover .remove-stamp { display: flex; }
+  .stamp .remove-stamp:hover { color: #c33; border-color: #c33; }
+
+  /* Stamp colors */
+  .stamp-0 { border-color: #2d5033; color: #2d5033; --rot: -3deg; }
+  .stamp-1 { border-color: #c4a05a; color: #8a7030; --rot: 2deg; }
+  .stamp-2 { border-color: #3a6b40; color: #3a6b40; --rot: -1deg; }
+  .stamp-3 { border-color: #4a7a5a; color: #4a7a5a; --rot: 3deg; }
+  .stamp-4 { border-color: #9a8840; color: #9a8840; --rot: -2deg; }
+
+  /* ── Add item form ── */
+  .add-form {
+    margin-top: 12px;
+    padding: 14px;
+    background: rgba(28,58,42,0.05);
+    border-radius: 8px;
+    border: 1px dashed #c8c0a8;
+  }
+  .add-form .row { margin-bottom: 8px; }
+  .add-form .field { margin-bottom: 8px; }
+  .stamp-btn {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: #2d5033;
+    color: #d4c9a8;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .stamp-btn:hover { background: #3a6b40; }
+
+  .add-item-trigger {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: transparent;
+    border: 1.5px dashed #c8c0a8;
+    border-radius: 8px;
+    color: #8a7e6b;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: center;
+    margin-top: 12px;
+    transition: all 0.2s;
+  }
+  .add-item-trigger:hover {
+    border-color: #2d5033;
+    color: #2d5033;
+    background: rgba(28,58,42,0.05);
+  }
+
+  /* ── Submit ── */
+  .save-btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #2d5033, #3a6b40);
+    color: #d4c9a8;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+  .save-btn:hover { opacity: 0.9; }
+  .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Success ── */
+  .success-page {
+    padding: 40px 24px;
+    text-align: center;
+    display: none;
+  }
+  .success-page .seal {
+    width: 80px; height: 80px;
+    margin: 0 auto 16px;
+    border: 3px solid #2d5033;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    color: #c4a05a;
+    background: #2d5033;
+  }
+  .success-page h2 {
+    font-family: 'Georgia', serif;
+    font-size: 20px;
+    color: #2d5033;
+    margin-bottom: 8px;
+  }
+  .success-page p {
+    font-size: 13px;
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+  .success-page .passport-id {
+    display: inline-block;
+    padding: 8px 20px;
+    background: #2d5033;
+    color: #c4a05a;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    user-select: all;
+  }
+
+  .error-msg {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #fff4f4;
+    border-left: 3px solid #c33;
+    color: #a33;
+    font-size: 12px;
+    display: none;
+    border-radius: 0 4px 4px 0;
+  }
+
+  /* Lookup bar */
+  .lookup-bar {
+    max-width: 420px;
+    margin: 16px auto 0;
+    text-align: center;
+    font-size: 13px;
+    color: #8a9aaa;
+  }
+  .lookup-bar a { color: #d4c9a8; cursor: pointer; text-decoration: underline; }
+  .lookup-inline {
+    display: none;
+    max-width: 420px;
+    margin: 8px auto;
+    background: rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .lookup-inline input {
+    width: calc(100% - 90px);
+    padding: 8px 12px;
+    border: 1px solid #555;
+    border-radius: 6px;
+    background: #222;
+    color: #fff;
+    font-size: 14px;
+  }
+  .lookup-inline button {
+    width: 80px;
+    margin-left: 8px;
+    padding: 8px;
+    background: #3a6b40;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="lookup-bar" id="lookupBar">
+  Already have a passport? <a id="lookupToggle">Look up by email</a>
+</div>
+<div class="lookup-inline" id="lookupInline">
+  <input type="email" id="lookupEmail" placeholder="Enter your email">
+  <button id="lookupBtn">Find</button>
+  <div class="error-msg" id="lookupError"></div>
+</div>
+
+<div class="passport">
+  <div class="passport-inner">
+
+    <!-- Cover -->
+    <div class="passport-cover">
+      <img src="/assets/logo-dark.jpg" alt="Zero Returns" style="width:200px;margin:0 auto 16px;display:block;border-radius:6px">
+      <h1>Sizing Passport</h1>
+      <div class="tagline">Your fit, everywhere you shop</div>
+    </div>
+
+    <form id="profileForm">
+      <!-- Personal info page -->
+      <div class="passport-page">
+        <div class="page-title">Personal Information</div>
+        <div class="row">
+          <div class="field">
+            <label>First Name</label>
+            <input type="text" id="firstName" placeholder="Mike">
+          </div>
+          <div class="field">
+            <label>Last Name</label>
+            <input type="text" id="lastName" placeholder="Harvey">
+          </div>
+        </div>
+        <div class="field">
+          <label>Email *</label>
+          <input type="email" id="email" placeholder="you@example.com" required>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Height</label>
+            <input type="text" id="height" placeholder='5&apos;11"'>
+          </div>
+          <div class="field">
+            <label>Weight</label>
+            <input type="text" id="weight" placeholder="185 lbs">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Build</label>
+            <select id="buildType">
+              <option value="">-</option>
+              <option value="slim">Slim</option>
+              <option value="athletic">Athletic</option>
+              <option value="average">Average</option>
+              <option value="broad">Broad</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Chest (in)</label>
+            <input type="text" id="chestMeasurement" placeholder="42">
+          </div>
+        </div>
+        <div class="field">
+          <label>Fit Preference</label>
+          <select id="fitPreference">
+            <option value="trim">Trim / Tailored</option>
+            <option value="standard" selected>Standard</option>
+            <option value="relaxed">Relaxed / Roomy</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Stamps page -->
+      <div class="passport-page">
+        <div class="page-title">Wardrobe Stamps</div>
+        <p style="font-size:12px;color:#8a7e6b;margin-bottom:14px;font-style:italic">
+          Each item you add gets stamped into your passport
+        </p>
+        <div class="stamps-area" id="stampsArea">
+          <div style="text-align:center;color:#c8c0a8;font-size:13px;padding:20px 0;font-style:italic" id="emptyMsg">
+            No stamps yet — add your first item below
+          </div>
+        </div>
+
+        <!-- Add item form (toggleable) -->
+        <div id="addFormWrap" style="display:none">
+          <div class="add-form">
+            <div class="row">
+              <div class="field">
+                <label>Brand *</label>
+                <input type="text" id="newBrand" placeholder="Peter Millar">
+              </div>
+              <div class="field">
+                <label>Product</label>
+                <input type="text" id="newProduct" placeholder="Crown Sport Polo">
+              </div>
+            </div>
+            <div class="row">
+              <div class="field">
+                <label>Size *</label>
+                <select id="newSize">
+                  <option value="">-</option>
+                  <option>XS</option><option>S</option><option>M</option>
+                  <option>L</option><option>XL</option><option>XXL</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Fit</label>
+                <select id="newFit">
+                  <option value="">-</option>
+                  <option value="too_tight">Too tight</option>
+                  <option value="slightly_snug">Slightly snug</option>
+                  <option value="perfect">Perfect</option>
+                  <option value="slightly_loose">Slightly loose</option>
+                  <option value="too_loose">Too loose</option>
+                </select>
+              </div>
+            </div>
+            <button type="button" class="stamp-btn" id="stampBtn">&#9733; Stamp My Passport</button>
+          </div>
+        </div>
+
+        <button type="button" class="add-item-trigger" id="addTrigger">+ Add an item from your wardrobe</button>
+      </div>
+
+      <!-- Save -->
+      <div class="passport-page" style="border-bottom:none">
+        <button type="submit" class="save-btn" id="saveBtn">Save Passport</button>
+        <div class="error-msg" id="formError"></div>
+      </div>
+    </form>
+
+    <!-- Success -->
+    <div class="success-page" id="successPage">
+      <div class="seal">&#10003;</div>
+      <h2>Passport Issued</h2>
+      <p>Your sizing passport is saved. When you visit any store using Zero Returns, enter your email for instant personalized recommendations.</p>
+      <div class="passport-id" id="successEmail"></div>
+      <p style="margin-top:16px;font-size:11px;color:#aaa">Return anytime to update your stamps</p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function() {
+  var API = window.location.origin;
+  var stamps = []; // {brand, productName, sizeLabel, fitRating}
+  var stampsArea = document.getElementById("stampsArea");
+  var emptyMsg = document.getElementById("emptyMsg");
+  var addTrigger = document.getElementById("addTrigger");
+  var addFormWrap = document.getElementById("addFormWrap");
+  var stampBtn = document.getElementById("stampBtn");
+  var form = document.getElementById("profileForm");
+  var saveBtn = document.getElementById("saveBtn");
+  var formError = document.getElementById("formError");
+  var successPage = document.getElementById("successPage");
+
+  var COLORS = ["stamp-0","stamp-1","stamp-2","stamp-3","stamp-4"];
+  var MAX_STAMPS = 5;
+
+  addTrigger.addEventListener("click", function() {
+    addFormWrap.style.display = addFormWrap.style.display === "none" ? "block" : "none";
+    if (addFormWrap.style.display === "block") {
+      document.getElementById("newBrand").focus();
+    }
+  });
+
+  stampBtn.addEventListener("click", function() {
+    var brand = document.getElementById("newBrand").value.trim();
+    var product = document.getElementById("newProduct").value.trim();
+    var size = document.getElementById("newSize").value;
+    var fit = document.getElementById("newFit").value;
+
+    if (!brand || !size) {
+      alert("Brand and size are required to stamp your passport.");
+      return;
+    }
+    if (stamps.length >= MAX_STAMPS) {
+      alert("Maximum 5 stamps per passport.");
+      return;
+    }
+
+    var item = {
+      brand: brand,
+      productName: product || brand + " Polo",
+      sizeLabel: size,
+      fitRating: fit
+    };
+    stamps.push(item);
+    renderStamps();
+
+    // Clear inputs
+    document.getElementById("newBrand").value = "";
+    document.getElementById("newProduct").value = "";
+    document.getElementById("newSize").value = "";
+    document.getElementById("newFit").value = "";
+
+    if (stamps.length >= MAX_STAMPS) {
+      addFormWrap.style.display = "none";
+      addTrigger.style.display = "none";
+    }
+  });
+
+  function renderStamps() {
+    // Remove old stamps (keep emptyMsg)
+    var existing = stampsArea.querySelectorAll(".stamp");
+    for (var i = 0; i < existing.length; i++) {
+      stampsArea.removeChild(existing[i]);
+    }
+
+    if (stamps.length === 0) {
+      emptyMsg.style.display = "block";
+      addTrigger.style.display = "block";
+      return;
+    }
+    emptyMsg.style.display = "none";
+
+    for (var j = 0; j < stamps.length; j++) {
+      var s = stamps[j];
+      var el = document.createElement("div");
+      el.className = "stamp " + COLORS[j % COLORS.length];
+      el.innerHTML =
+        '<span class="remove-stamp" data-idx="' + j + '">&times;</span>' +
+        '<span class="stamp-brand">' + esc(s.brand) + '</span>' +
+        '<span class="stamp-detail">' + esc(s.productName) + (s.fitRating ? ' &middot; ' + esc(s.fitRating.replace(/_/g,' ')) : '') + '</span>' +
+        '<span class="stamp-size">' + esc(s.sizeLabel) + '</span>';
+      stampsArea.appendChild(el);
+    }
+
+    // Wire remove buttons
+    var removeBtns = stampsArea.querySelectorAll(".remove-stamp");
+    for (var k = 0; k < removeBtns.length; k++) {
+      removeBtns[k].addEventListener("click", function() {
+        var idx = parseInt(this.dataset.idx, 10);
+        stamps.splice(idx, 1);
+        renderStamps();
+        if (stamps.length < MAX_STAMPS) {
+          addTrigger.style.display = "block";
+        }
+      });
+    }
+  }
+
+  // ── Form submission ──
+  form.addEventListener("submit", function(e) {
+    e.preventDefault();
+    formError.style.display = "none";
+
+    var email = document.getElementById("email").value.trim();
+    if (!email) {
+      formError.textContent = "Email is required.";
+      formError.style.display = "block";
+      return;
+    }
+    if (stamps.length === 0) {
+      formError.textContent = "Stamp at least one item into your passport.";
+      formError.style.display = "block";
+      return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = "ISSUING PASSPORT...";
+
+    fetch(API + "/api/profiles", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        email: email,
+        firstName: document.getElementById("firstName").value.trim(),
+        lastName: document.getElementById("lastName").value.trim(),
+        height: document.getElementById("height").value.trim(),
+        weight: document.getElementById("weight").value.trim(),
+        buildType: document.getElementById("buildType").value,
+        chestMeasurement: document.getElementById("chestMeasurement").value.trim(),
+        fitPreference: document.getElementById("fitPreference").value,
+        items: stamps.map(function(s, i) {
+          return {
+            brand: s.brand,
+            productName: s.productName,
+            sizeLabel: s.sizeLabel,
+            fitRating: s.fitRating,
+            isPrimary: i === 0
+          };
+        })
+      })
+    })
+      .then(function(r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function(data) {
+        form.style.display = "none";
+        successPage.style.display = "block";
+        document.getElementById("successEmail").textContent = data.profile.email;
+        document.getElementById("lookupBar").style.display = "none";
+        document.getElementById("lookupInline").style.display = "none";
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      })
+      .catch(function(err) {
+        formError.textContent = "Failed: " + err.message;
+        formError.style.display = "block";
+        saveBtn.disabled = false;
+        saveBtn.textContent = "SAVE PASSPORT";
+      });
+  });
+
+  // ── Lookup ──
+  document.getElementById("lookupToggle").addEventListener("click", function(e) {
+    e.preventDefault();
+    var el = document.getElementById("lookupInline");
+    el.style.display = el.style.display === "none" ? "block" : "none";
+  });
+
+  document.getElementById("lookupBtn").addEventListener("click", function() {
+    var email = document.getElementById("lookupEmail").value.trim();
+    if (!email) return;
+    var errEl = document.getElementById("lookupError");
+    errEl.style.display = "none";
+    this.disabled = true;
+    this.textContent = "...";
+    var btn = this;
+
+    fetch(API + "/api/profiles/" + encodeURIComponent(email))
+      .then(function(r) {
+        if (r.status === 404) throw new Error("No passport found. Create one below!");
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function(data) {
+        fillForm(data);
+        document.getElementById("lookupInline").style.display = "none";
+        saveBtn.textContent = "UPDATE PASSPORT";
+        btn.disabled = false;
+        btn.textContent = "Find";
+      })
+      .catch(function(err) {
+        errEl.textContent = err.message;
+        errEl.style.display = "block";
+        btn.disabled = false;
+        btn.textContent = "Find";
+      });
+  });
+
+  function fillForm(data) {
+    var p = data.profile;
+    document.getElementById("firstName").value = p.firstName || "";
+    document.getElementById("lastName").value = p.lastName || "";
+    document.getElementById("email").value = p.email || "";
+    document.getElementById("height").value = p.height || "";
+    document.getElementById("weight").value = p.weight || "";
+    document.getElementById("buildType").value = p.buildType || "";
+    document.getElementById("chestMeasurement").value = p.chestMeasurement || "";
+    document.getElementById("fitPreference").value = p.fitPreference || "standard";
+
+    stamps = [];
+    if (data.items) {
+      for (var i = 0; i < data.items.length; i++) {
+        stamps.push({
+          brand: data.items[i].brand,
+          productName: data.items[i].productName,
+          sizeLabel: data.items[i].sizeLabel,
+          fitRating: data.items[i].fitRating || ""
+        });
+      }
+    }
+    renderStamps();
+  }
+
+  function esc(s) {
+    return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+})();
+</script>
+</body>
+</html>

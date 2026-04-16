@@ -1,0 +1,518 @@
+{% comment %}
+  Hey Tailor Sizing Widget - app block for product pages.
+  Self-contained vanilla JS. Talks directly to the local backend on
+  http://localhost:3000 during dev. For production we'd route through
+  Shopify's app proxy at /apps/hey-tailor.
+{% endcomment %}
+
+<div
+  id="hey-tailor-root-{{ block.id }}"
+  class="hey-tailor-widget"
+  data-product-id="{{ product.id }}"
+  data-product-handle="{{ product.handle }}"
+  data-product-title="{{ product.title | escape }}"
+  data-shop="{{ shop.permanent_domain }}"
+  data-title="{{ block.settings.title | default: 'Find My Best Size' | escape }}"
+  data-subtext="{{ block.settings.subtext | default: 'Use one item you already own to get a fast recommendation' | escape }}"
+  data-cta="{{ block.settings.cta | default: 'Find My Size' | escape }}"
+  {{ block.shopify_attributes }}
+>
+  <div class="hey-tailor-card">
+    <div class="hey-tailor-title">{{ block.settings.title | default: 'Find My Best Size' }}</div>
+    <div class="hey-tailor-subtext">{{ block.settings.subtext | default: 'Use one item you already own to get a fast recommendation' }}</div>
+    <button type="button" class="hey-tailor-cta">{{ block.settings.cta | default: 'Find My Size' }}</button>
+  </div>
+</div>
+
+<style>
+  .hey-tailor-widget { margin: 16px 0; }
+  .hey-tailor-card {
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    padding: 16px;
+    background: #fafafa;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  .hey-tailor-title { font-weight: 600; font-size: 16px; margin-bottom: 4px; color: #111; }
+  .hey-tailor-subtext { font-size: 13px; color: #666; margin-bottom: 12px; }
+  .hey-tailor-cta {
+    display: inline-block;
+    padding: 10px 18px;
+    background: #111;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .hey-tailor-cta:hover { background: #333; }
+
+  .ht-modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 99999;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  .ht-modal {
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 440px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  }
+  .ht-modal h2 { margin: 0 0 4px; font-size: 20px; color: #111; }
+  .ht-modal p.ht-sub { margin: 0 0 20px; font-size: 14px; color: #666; }
+  .ht-close {
+    position: absolute; top: 16px; right: 16px;
+    background: transparent; border: none;
+    font-size: 24px; color: #999; cursor: pointer;
+  }
+  .ht-field { margin-bottom: 16px; }
+  .ht-field label {
+    display: block; font-size: 13px; font-weight: 600;
+    color: #333; margin-bottom: 6px;
+  }
+  .ht-field select, .ht-field input {
+    width: 100%; padding: 10px 12px;
+    border: 1px solid #d0d0d0; border-radius: 8px;
+    font-size: 14px; background: #fff; color: #111;
+    box-sizing: border-box;
+  }
+  .ht-submit {
+    width: 100%; padding: 12px;
+    background: #111; color: #fff;
+    border: none; border-radius: 8px;
+    font-size: 15px; font-weight: 600;
+    cursor: pointer; margin-top: 8px;
+  }
+  .ht-submit:disabled { background: #999; cursor: not-allowed; }
+  .ht-result {
+    margin-top: 16px; padding: 16px;
+    background: #f0f9f4; border: 1px solid #a7e3bf;
+    border-radius: 10px;
+  }
+  .ht-result .ht-size {
+    font-size: 32px; font-weight: 700; color: #0a7f3e;
+    margin-bottom: 4px;
+  }
+  .ht-result .ht-conf { font-size: 13px; color: #555; }
+  .ht-error {
+    margin-top: 12px; padding: 12px;
+    background: #fff4f4; border: 1px solid #f0c4c4;
+    border-radius: 8px; color: #a33; font-size: 13px;
+  }
+  .ht-spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid #fff; border-top-color: transparent;
+    border-radius: 50%; animation: ht-spin 0.8s linear infinite;
+    vertical-align: middle; margin-right: 8px;
+  }
+  @keyframes ht-spin { to { transform: rotate(360deg); } }
+
+  .ht-auto-result {
+    margin-top: 12px; padding: 12px;
+    background: #f5f5f5; border-radius: 8px;
+    font-size: 14px; color: #555;
+  }
+  .ht-spinner-dark {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid #999; border-top-color: transparent;
+    border-radius: 50%; animation: ht-spin 0.8s linear infinite;
+    vertical-align: middle; margin-right: 8px;
+  }
+  .ht-edit-row {
+    margin-top: 12px; font-size: 12px; color: #666;
+  }
+  .ht-edit-link {
+    color: #0a7f3e; text-decoration: underline; cursor: pointer;
+  }
+  .ht-saved-note {
+    margin-top: 8px; font-size: 12px; color: #0a7f3e; font-style: italic;
+  }
+</style>
+
+<script>
+(function() {
+  var rootId = "hey-tailor-root-{{ block.id }}";
+  var root = document.getElementById(rootId);
+  if (!root || root.dataset.htInit === "1") return;
+  root.dataset.htInit = "1";
+
+  var BACKEND = "http://localhost:3000";
+  var DEMO_SHOP = root.dataset.shop || "zeroreturns.myshopify.com";
+  // Send the product handle so the backend can look up the right product
+  // and return size recommendations specific to this garment's measurements.
+  var PRODUCT_HANDLE = root.dataset.productHandle || "";
+  var PROFILE_KEY = "heyTailorProfile";
+  var SHOPPER_KEY = "heyTailorShopperId";
+  var button = root.querySelector(".hey-tailor-cta");
+  var card = root.querySelector(".hey-tailor-card");
+  var productTitle = root.dataset.productTitle || "this item";
+
+  // Generate a stable shopper ID for linking recommendations to purchases.
+  function getShopperId() {
+    try {
+      var id = window.localStorage.getItem(SHOPPER_KEY);
+      if (!id) {
+        id = "ht_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        window.localStorage.setItem(SHOPPER_KEY, id);
+      }
+      return id;
+    } catch (_) { return null; }
+  }
+  var SHOPPER_ID = getShopperId();
+
+  button.addEventListener("click", openModal);
+
+  // --- Profile persistence ------------------------------------------------
+  // On load: if we have a saved profile, skip straight to the recommendation
+  // so the shopper doesn't have to re-enter anything.
+  var savedProfile = loadProfile();
+  if (savedProfile && savedProfile.referenceItemId) {
+    renderAutoRecommendation(savedProfile);
+  }
+
+  function loadProfile() {
+    try {
+      var raw = window.localStorage.getItem(PROFILE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (_) { return null; }
+  }
+
+  function saveProfile(p) {
+    try { window.localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch (_) {}
+  }
+
+  function clearProfile() {
+    try { window.localStorage.removeItem(PROFILE_KEY); } catch (_) {}
+  }
+
+  function renderAutoRecommendation(profile) {
+    // Replace the whole card with a "fetching..." state, then swap in the
+    // green recommendation box when the backend responds.
+    card.innerHTML =
+      '<div class="hey-tailor-title">Your recommended size</div>' +
+      '<div class="hey-tailor-subtext">Based on your ' + escapeHtml(profile.brand) +
+        ' ' + escapeHtml(profile.productName) + ' (' + escapeHtml(profile.size) + ')</div>' +
+      '<div class="ht-auto-result"><span class="ht-spinner-dark"></span>Calculating your size...</div>';
+
+    fetch(BACKEND + "/api/recommend", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        shopDomain: DEMO_SHOP,
+        productHandle: PRODUCT_HANDLE,
+        referenceItemId: Number(profile.referenceItemId),
+        fitPreference: "standard",
+        shopperId: SHOPPER_ID
+      })
+    })
+      .then(function(r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function(data) {
+        if (data.error) throw new Error(data.error);
+        var size = data.recommendedSize || data.size || "?";
+        var conf = data.confidence || 0;
+        card.innerHTML =
+          '<div class="hey-tailor-title">Your recommended size</div>' +
+          '<div class="ht-result" style="margin-top:8px">' +
+            '<div class="ht-size">' + escapeHtml(size) + '</div>' +
+            '<div class="ht-conf">' + conf + '% confidence for ' + escapeHtml(productTitle) + '</div>' +
+          '</div>' +
+          '<div class="ht-edit-row">' +
+            'Based on your ' + escapeHtml(profile.brand) + ' ' + escapeHtml(profile.size) + ' &middot; ' +
+            '<a href="#" class="ht-edit-link">Not you? Change my size</a>' +
+          '</div>';
+        wireEditLink();
+      })
+      .catch(function(err) {
+        // Fall back to the manual flow if the backend can't be reached.
+        card.innerHTML =
+          '<div class="hey-tailor-title">Find My Best Size</div>' +
+          '<div class="hey-tailor-subtext">Use one item you already own to get a fast recommendation</div>' +
+          '<button type="button" class="hey-tailor-cta">Find My Size</button>' +
+          '<div class="ht-error" style="margin-top:12px">Could not load saved size: ' + escapeHtml(err.message) + '</div>';
+        card.querySelector(".hey-tailor-cta").addEventListener("click", openModal);
+      });
+  }
+
+  function wireEditLink() {
+    var link = card.querySelector(".ht-edit-link");
+    if (!link) return;
+    link.addEventListener("click", function(e) {
+      e.preventDefault();
+      clearProfile();
+      // Restore the original card so the modal CTA works again.
+      card.innerHTML =
+        '<div class="hey-tailor-title">Find My Best Size</div>' +
+        '<div class="hey-tailor-subtext">Use one item you already own to get a fast recommendation</div>' +
+        '<button type="button" class="hey-tailor-cta">Find My Size</button>';
+      card.querySelector(".hey-tailor-cta").addEventListener("click", openModal);
+      openModal();
+    });
+  }
+
+  function openModal() {
+    var overlay = document.createElement("div");
+    overlay.className = "ht-modal-overlay";
+    overlay.innerHTML =
+      '<div class="ht-modal" style="position:relative">' +
+        '<button type="button" class="ht-close" aria-label="Close">&times;</button>' +
+        '<h2>Find your size</h2>' +
+        '<p class="ht-sub">Tell us about an item you already own that fits well.</p>' +
+        '<div class="ht-field">' +
+          '<label>Brand</label>' +
+          '<select class="ht-brand"><option value="">Loading...</option></select>' +
+        '</div>' +
+        '<div class="ht-field">' +
+          '<label>Product</label>' +
+          '<select class="ht-product" disabled><option value="">Pick a brand first</option></select>' +
+        '</div>' +
+        '<div class="ht-field">' +
+          '<label>Size you wear in that item</label>' +
+          '<select class="ht-size-sel" disabled><option value="">Pick a product first</option></select>' +
+        '</div>' +
+        '<button type="button" class="ht-submit" disabled>Get my recommendation</button>' +
+        '<div class="ht-result-area"></div>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+
+    var close = overlay.querySelector(".ht-close");
+    close.addEventListener("click", function() { document.body.removeChild(overlay); });
+    overlay.addEventListener("click", function(e) {
+      if (e.target === overlay) document.body.removeChild(overlay);
+    });
+
+    var brandSel   = overlay.querySelector(".ht-brand");
+    var productSel = overlay.querySelector(".ht-product");
+    var sizeSel    = overlay.querySelector(".ht-size-sel");
+    var submitBtn  = overlay.querySelector(".ht-submit");
+    var resultArea = overlay.querySelector(".ht-result-area");
+
+    // brandsMap shape from /api/reference-items:
+    // { brands: { BrandName: { ProductName: { itemType, sizes: ["S","M",...], ids: [1,2,...] } } } }
+    var brandsMap = {};
+
+    fetch(BACKEND + "/api/reference-items")
+      .then(function(r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function(data) {
+        brandsMap = (data && data.brands) || {};
+        var brandList = Object.keys(brandsMap).sort();
+        brandSel.innerHTML = '<option value="">Select a brand</option>' +
+          brandList.map(function(b) {
+            return '<option value="' + escapeHtml(b) + '">' + escapeHtml(b) + '</option>';
+          }).join("");
+      })
+      .catch(function(err) {
+        resultArea.innerHTML = '<div class="ht-error">Could not load brands. Make sure the Hey Tailor backend window is running on port 3000. (' + escapeHtml(err.message) + ')</div>';
+      });
+
+    brandSel.addEventListener("change", function() {
+      var brand = brandSel.value;
+      if (!brand || !brandsMap[brand]) {
+        productSel.disabled = true;
+        productSel.innerHTML = '<option value="">Pick a brand first</option>';
+        return;
+      }
+      var plist = Object.keys(brandsMap[brand]).sort();
+      productSel.disabled = false;
+      productSel.innerHTML = '<option value="">Select a product</option>' +
+        plist.map(function(p) {
+          return '<option value="' + escapeHtml(p) + '">' + escapeHtml(p) + '</option>';
+        }).join("");
+      sizeSel.disabled = true;
+      sizeSel.innerHTML = '<option value="">Pick a product first</option>';
+      submitBtn.disabled = true;
+    });
+
+    productSel.addEventListener("change", function() {
+      var brand = brandSel.value;
+      var product = productSel.value;
+      var entry = brandsMap[brand] && brandsMap[brand][product];
+      if (!entry) {
+        sizeSel.disabled = true;
+        sizeSel.innerHTML = '<option value="">Pick a product first</option>';
+        return;
+      }
+      sizeSel.disabled = false;
+      var opts = '<option value="">Select your size</option>';
+      for (var i = 0; i < entry.sizes.length; i++) {
+        opts += '<option value="' + entry.ids[i] + '">' + escapeHtml(entry.sizes[i]) + '</option>';
+      }
+      sizeSel.innerHTML = opts;
+      submitBtn.disabled = true;
+    });
+
+    sizeSel.addEventListener("change", function() {
+      submitBtn.disabled = !sizeSel.value;
+    });
+
+    submitBtn.addEventListener("click", function() {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="ht-spinner"></span>Calculating...';
+      resultArea.innerHTML = "";
+
+      var chosenBrand = brandSel.value;
+      var chosenProduct = productSel.value;
+      var chosenSizeLabel = sizeSel.options[sizeSel.selectedIndex].text;
+      var chosenRefId = Number(sizeSel.value);
+
+      fetch(BACKEND + "/api/recommend", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          shopDomain: DEMO_SHOP,
+          productHandle: PRODUCT_HANDLE,
+          referenceItemId: chosenRefId,
+          fitPreference: "standard",
+          shopperId: SHOPPER_ID
+        })
+      })
+        .then(function(r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(function(data) {
+          if (data.error) {
+            resultArea.innerHTML = '<div class="ht-error">' + escapeHtml(data.error) + '</div>';
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Get my recommendation";
+            return;
+          }
+          var size = data.recommendedSize || data.size || "?";
+          var conf = data.confidence || 0;
+          var source = data.source || "measurement";
+
+          saveProfile({
+            brand: chosenBrand,
+            productName: chosenProduct,
+            size: chosenSizeLabel,
+            referenceItemId: chosenRefId
+          });
+
+          var sourceLabel = "";
+          if (source.indexOf("collaborative") !== -1) {
+            sourceLabel = '<div style="font-size:11px;color:#0a7f3e;margin-top:4px">&#x2714; Enhanced by community sizing data</div>';
+          }
+
+          submitBtn.style.display = "none";
+
+          resultArea.innerHTML =
+            '<div class="ht-result" style="margin-top:16px">' +
+              '<div class="ht-size">' + escapeHtml(size) + '</div>' +
+              '<div class="ht-conf">' + conf + '% confidence for ' + escapeHtml(productTitle) + '</div>' +
+              sourceLabel +
+              '<div class="ht-saved-note">Closing automatically...</div>' +
+            '</div>';
+
+          // Auto-close after 2.5 seconds
+          setTimeout(function() {
+            try { overlay.remove(); } catch(_) {}
+            savedProfile = loadProfile();
+            if (savedProfile && savedProfile.referenceItemId) {
+              renderAutoRecommendation(savedProfile);
+            }
+          }, 2500);
+        })
+        .catch(function(err) {
+          resultArea.innerHTML = '<div class="ht-error">Recommendation failed: ' + escapeHtml(err.message) + '</div>';
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Get my recommendation";
+        });
+    });
+  }
+
+  // --- Add-to-cart tracking ------------------------------------------------
+  // After a recommendation is shown, watch for the store's Add to Cart button.
+  // When clicked, log an event so we can track recommendation → purchase.
+  function trackAddToCart() {
+    // Common Shopify ATC selectors across themes
+    var selectors = [
+      'form[action="/cart/add"] [type="submit"]',
+      '.product-form__submit',
+      'button[name="add"]',
+      '.add-to-cart',
+      '#AddToCart'
+    ];
+    for (var i = 0; i < selectors.length; i++) {
+      var btn = document.querySelector(selectors[i]);
+      if (btn && !btn.dataset.htTracked) {
+        btn.dataset.htTracked = "1";
+        btn.addEventListener("click", function() {
+          var profile = loadProfile();
+          if (!profile) return; // No recommendation was active
+          fetch(BACKEND + "/api/events", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              shopDomain: DEMO_SHOP,
+              productHandle: PRODUCT_HANDLE,
+              eventType: "add_to_cart_after_recommendation",
+              shopperId: SHOPPER_ID,
+              payload: {
+                referenceItemId: profile.referenceItemId,
+                referenceBrand: profile.brand,
+                referenceSize: profile.size,
+                productHandle: PRODUCT_HANDLE,
+                productTitle: productTitle
+              }
+            })
+          }).catch(function() {}); // Fire-and-forget
+        });
+        break;
+      }
+    }
+  }
+  // Run after a short delay so the product page DOM is ready
+  setTimeout(trackAddToCart, 1000);
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function(c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Hey Tailor Sizing Widget",
+  "target": "section",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Widget copy"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Widget title",
+      "default": "Find My Best Size"
+    },
+    {
+      "type": "text",
+      "id": "subtext",
+      "label": "Subtext",
+      "default": "Use one item you already own to get a fast recommendation"
+    },
+    {
+      "type": "text",
+      "id": "cta",
+      "label": "CTA button",
+      "default": "Find My Size"
+    }
+  ]
+}
+{% endschema %}

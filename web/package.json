@@ -1,0 +1,32 @@
+{
+  "name": "hey-tailor-web",
+  "version": "0.1.0",
+  "description": "Hey Tailor backend — Express + SQLite (node:sqlite) + recommendation engine",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "dev": "tsx watch --no-warnings src/index.ts",
+    "build": "tsc",
+    "start": "node --no-warnings dist/index.js",
+    "migrate": "tsx --no-warnings scripts/migrate.ts",
+    "seed": "tsx --no-warnings scripts/seed.ts",
+    "sync": "tsx --no-warnings scripts/sync-sheet.ts",
+    "admin": "tsx --no-warnings scripts/admin.ts",
+    "survey:import": "tsx --no-warnings scripts/import-survey.ts"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.3"
+  }
+}

@@ -1,0 +1,7 @@
+api_version = "2024-10"
+uid = "67f880e4-77cd-7c30-52d9-0939a238f4ab6aaa7421"
+
+[[extensions]]
+type = "theme"
+name = "Hey Tailor Sizing Widget"
+handle = "sizing-widget"
