@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "tsx watch --no-warnings src/index.ts",
     "build": "tsc",
-    "start": "node --no-warnings dist/index.js",
+    "start": "node --no-warnings dist/src/index.js",
     "migrate": "tsx --no-warnings scripts/migrate.ts",
     "seed": "tsx --no-warnings scripts/seed.ts",
     "sync": "tsx --no-warnings scripts/sync-sheet.ts",

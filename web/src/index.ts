@@ -1,6 +1,8 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
+import { db, execScript } from './db';
 import { proxyRouter } from './routes/proxy';
 import { referenceItemsRouter } from './routes/referenceItems';
 import { recommendRouter } from './routes/recommend';
@@ -10,6 +12,66 @@ import { conversionsRouter } from './routes/conversions';
 import { profilesRouter } from './routes/profiles';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+// --- Auto-migrate on startup ---
+function runMigrations() {
+  // Try multiple possible locations for migration files
+  const candidates = [
+    path.resolve(__dirname, '../migrations'),      // from src/ (dev)
+    path.resolve(__dirname, '../../migrations'),    // from dist/src/ (compiled)
+  ];
+  let migrationsDir = '';
+  for (const dir of candidates) {
+    if (fs.existsSync(dir)) { migrationsDir = dir; break; }
+  }
+  if (!migrationsDir) {
+    console.log('[boot] No migrations directory found, skipping');
+    return;
+  }
+  const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
+  for (const file of files) {
+    try {
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
+      execScript(sql);
+      console.log(`[boot] Migration applied: ${file}`);
+    } catch (err: any) {
+      // "table already exists" is fine — means migration already ran
+      if (!err.message?.includes('already exists')) {
+        console.error(`[boot] Migration error in ${file}:`, err.message);
+      }
+    }
+  }
+}
+
+// --- Auto-seed if tables are empty ---
+function seedIfEmpty() {
+  try {
+    const row = db.prepare('SELECT COUNT(*) as cnt FROM merchants').get() as any;
+    if (row && row.cnt > 0) {
+      console.log('[boot] Data already seeded, skipping');
+      return;
+    }
+  } catch {
+    console.log('[boot] Cannot check merchants table, skipping seed');
+    return;
+  }
+
+  console.log('[boot] Seeding initial data...');
+  try {
+    const seedPath = path.resolve(__dirname, '../scripts/seed');
+    if (fs.existsSync(seedPath + '.js')) {
+      const { seed } = require(seedPath);
+      seed();
+    } else {
+      console.log('[boot] No compiled seed script found, skipping');
+    }
+  } catch (err: any) {
+    console.error('[boot] Seed error:', err.message);
+  }
+}
+
+runMigrations();
+seedIfEmpty();
 
 const app = express();
 

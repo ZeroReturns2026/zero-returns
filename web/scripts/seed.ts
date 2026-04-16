@@ -401,10 +401,16 @@ function main() {
   } catch (err) {
     try { db.exec('ROLLBACK'); } catch {}
     console.error('Seed failed:', err);
-    process.exit(1);
+    if (require.main === module) process.exit(1);
   } finally {
-    close();
+    // Only close DB if running as standalone script
+    if (require.main === module) close();
   }
 }
 
-main();
+export { main as seed };
+
+// Only auto-run when called directly (not when required by index.ts)
+if (require.main === module) {
+  main();
+}
