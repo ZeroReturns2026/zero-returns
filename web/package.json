@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "tsx watch --no-warnings src/index.ts",
-    "build": "tsc",
+    "build": "tsc && node -e \"const fs=require('fs'),p=require('path');['profile-app.html','dashboard.html','logo-light.jpg','logo-dark.jpg'].forEach(f=>{const s=p.join('src',f),d=p.join('dist','src',f);if(fs.existsSync(s))fs.copyFileSync(s,d)})\"",
     "start": "node --no-warnings dist/src/index.js",
     "migrate": "tsx --no-warnings scripts/migrate.ts",
     "seed": "tsx --no-warnings scripts/seed.ts",
