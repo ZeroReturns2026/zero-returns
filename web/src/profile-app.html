@@ -431,7 +431,31 @@
         <div class="row">
           <div class="field">
             <label>Height</label>
-            <input type="text" id="height" placeholder='5&apos;11"'>
+            <div style="display:flex;gap:8px;">
+              <select id="heightFeet" style="flex:1;">
+                <option value="">ft</option>
+                <option value="4">4'</option>
+                <option value="5">5'</option>
+                <option value="6">6'</option>
+                <option value="7">7'</option>
+              </select>
+              <select id="heightInches" style="flex:1;">
+                <option value="">in</option>
+                <option value="0">0"</option>
+                <option value="1">1"</option>
+                <option value="2">2"</option>
+                <option value="3">3"</option>
+                <option value="4">4"</option>
+                <option value="5">5"</option>
+                <option value="6">6"</option>
+                <option value="7">7"</option>
+                <option value="8">8"</option>
+                <option value="9">9"</option>
+                <option value="10">10"</option>
+                <option value="11">11"</option>
+              </select>
+            </div>
+            <input type="hidden" id="height">
           </div>
           <div class="field">
             <label>Weight</label>
@@ -549,6 +573,24 @@
   var saveBtn = document.getElementById("saveBtn");
   var formError = document.getElementById("formError");
   var successPage = document.getElementById("successPage");
+
+  // Sync height dropdowns to hidden field
+  var heightFeet = document.getElementById("heightFeet");
+  var heightInches = document.getElementById("heightInches");
+  var heightHidden = document.getElementById("height");
+  function syncHeight() {
+    var ft = heightFeet.value;
+    var inc = heightInches.value;
+    if (ft && inc !== "") {
+      heightHidden.value = ft + "'" + inc + '"';
+    } else if (ft) {
+      heightHidden.value = ft + "'0\"";
+    } else {
+      heightHidden.value = "";
+    }
+  }
+  heightFeet.addEventListener("change", syncHeight);
+  heightInches.addEventListener("change", syncHeight);
 
   var COLORS = ["stamp-0","stamp-1","stamp-2","stamp-3","stamp-4"];
   var MAX_STAMPS = 5;
@@ -742,6 +784,12 @@
     document.getElementById("lastName").value = p.lastName || "";
     document.getElementById("email").value = p.email || "";
     document.getElementById("height").value = p.height || "";
+    // Parse height like 5'11" into dropdowns
+    var hMatch = (p.height || "").match(/(\d+)'(\d+)/);
+    if (hMatch) {
+      heightFeet.value = hMatch[1];
+      heightInches.value = hMatch[2];
+    }
     document.getElementById("weight").value = p.weight || "";
     document.getElementById("buildType").value = p.buildType || "";
     document.getElementById("chestMeasurement").value = p.chestMeasurement || "";
