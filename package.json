@@ -1,10 +1,15 @@
 {
-  "name": "hey-tailor",
+  "name": "zero-returns",
   "version": "0.1.0",
   "private": true,
-  "description": "Shopify sizing recommendation MVP",
+  "description": "Zero Returns — Shopify sizing recommendation app",
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "scripts": {
     "setup": "cd web && npm install && cd ../widget && npm install",
+    "build": "cd web && npm install && npm run build && npm run seed",
+    "start": "cd web && npm run start",
     "db:migrate": "cd web && npm run migrate",
     "db:seed": "cd web && npm run seed",
     "sync": "cd web && npm run sync",
