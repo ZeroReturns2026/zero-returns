@@ -4,7 +4,11 @@ import path from 'path';
 import { execScript, close } from '../src/db';
 
 function main() {
-  const migrationsDir = path.resolve(__dirname, '../migrations');
+  // Support running from compiled dist/ or from source
+  let migrationsDir = path.resolve(__dirname, '../migrations');
+  if (!fs.existsSync(migrationsDir)) {
+    migrationsDir = path.resolve(__dirname, '../../migrations');
+  }
   const files = fs
     .readdirSync(migrationsDir)
     .filter((f) => f.endsWith('.sql'))
