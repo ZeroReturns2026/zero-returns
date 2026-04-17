@@ -287,9 +287,16 @@
     document.body.appendChild(overlay);
 
     var close = overlay.querySelector(".ht-close");
-    close.addEventListener("click", function() { document.body.removeChild(overlay); });
+    function closeAndShowResult() {
+      try { overlay.remove(); } catch(_) {}
+      var p = loadProfile();
+      if (p && p.referenceItemId) {
+        renderAutoRecommendation(p);
+      }
+    }
+    close.addEventListener("click", closeAndShowResult);
     overlay.addEventListener("click", function(e) {
-      if (e.target === overlay) document.body.removeChild(overlay);
+      if (e.target === overlay) closeAndShowResult();
     });
 
     var brandSel   = overlay.querySelector(".ht-brand");
@@ -414,17 +421,10 @@
               '<div class="ht-size">' + escapeHtml(size) + '</div>' +
               '<div class="ht-conf">' + conf + '% confidence for ' + escapeHtml(productTitle) + '</div>' +
               sourceLabel +
-              '<div class="ht-saved-note">Closing automatically...</div>' +
-            '</div>';
+            '</div>' +
+            '<button type="button" class="ht-submit ht-done-btn" style="margin-top:12px;background:#0a7f3e;">Done</button>';
 
-          // Auto-close after 2.5 seconds
-          setTimeout(function() {
-            try { overlay.remove(); } catch(_) {}
-            savedProfile = loadProfile();
-            if (savedProfile && savedProfile.referenceItemId) {
-              renderAutoRecommendation(savedProfile);
-            }
-          }, 2500);
+          resultArea.querySelector(".ht-done-btn").addEventListener("click", closeAndShowResult);
         })
         .catch(function(err) {
           resultArea.innerHTML = '<div class="ht-error">Recommendation failed: ' + escapeHtml(err.message) + '</div>';
