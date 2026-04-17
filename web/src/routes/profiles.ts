@@ -3,6 +3,7 @@ import { query, queryOne, db } from '../db';
 import fs from 'fs';
 import path from 'path';
 import ExcelJS from 'exceljs';
+import { normalizeBrand, normalizeFit } from '../services/brandNormalizer';
 
 // Run migration on import
 const migrationPath = path.resolve(__dirname, '../../migrations/004_profiles.sql');
@@ -326,11 +327,12 @@ profilesRouter.post('/', async (req, res) => {
 
       for (const item of body.items) {
         if (item.brand && item.productName && item.sizeLabel) {
+          const normalBrand = normalizeBrand(item.brand);
           insertItem.run(
             profile.id,
-            item.brand.trim(),
-            item.productName.trim(),
-            item.sizeLabel.trim(),
+            normalBrand,
+            normalizeFit(normalBrand, item.productName),
+            item.sizeLabel.trim().toUpperCase(),
             item.fitRating || '',
             item.isPrimary ? 1 : 0
           );
@@ -376,7 +378,8 @@ profilesRouter.post('/', async (req, res) => {
           );
           body.items.forEach((item, i) => {
             if (item.brand && item.sizeLabel) {
-              insertSurveyItem.run(newResp.id, i + 1, item.brand.trim(), item.productName?.trim() || '', item.sizeLabel.trim(), item.fitRating || '');
+              const nb = normalizeBrand(item.brand);
+              insertSurveyItem.run(newResp.id, i + 1, nb, normalizeFit(nb, item.productName?.trim() || ''), item.sizeLabel.trim().toUpperCase(), item.fitRating || '');
             }
           });
         }
