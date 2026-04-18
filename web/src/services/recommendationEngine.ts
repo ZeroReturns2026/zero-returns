@@ -138,18 +138,71 @@ function measurementMatch(input: RecommendInput) {
   const { productSizes, reference, fitPreference } = input;
   const offset = FIT_OFFSETS[fitPreference ?? 'standard'];
 
+  const adjustedChest = reference.chest_inches + offset.chest;
+  const adjustedShoulder = reference.shoulder_inches + offset.shoulder;
+  const adjustedLength = reference.length_inches + offset.length;
+
   const scored = productSizes.map((size) => {
-    const chestDiff = Math.abs(size.chest_inches - (reference.chest_inches + offset.chest));
-    const shoulderDiff = Math.abs(
-      size.shoulder_inches - (reference.shoulder_inches + offset.shoulder)
-    );
-    const lengthDiff = Math.abs(size.length_inches - (reference.length_inches + offset.length));
+    const chestDiff = Math.abs(size.chest_inches - adjustedChest);
+    const shoulderDiff = Math.abs(size.shoulder_inches - adjustedShoulder);
+    const lengthDiff = Math.abs(size.length_inches - adjustedLength);
     const score =
       chestDiff * CHEST_WEIGHT + shoulderDiff * SHOULDER_WEIGHT + lengthDiff * LENGTH_WEIGHT;
-    return { size: size.size_label, score, chestDiff, shoulderDiff, lengthDiff, sizeRow: size };
+    return { size: size.size_label, score, chestDiff, shoulderDiff, lengthDiff, sizeRow: size, fitGuard: undefined as string | undefined };
   });
 
   scored.sort((a, b) => a.score - b.score);
+
+  // ── Directional guard for trim/relaxed preferences ──
+  // If the best size's chest is on the WRONG side of the original reference,
+  // the shopper could end up with a garment that's tighter (or looser) than
+  // even their reference — not just "slightly trimmer/roomier."
+  // In that case, bump to the next size in the correct direction.
+  if (fitPreference === 'trim' && scored.length >= 2) {
+    const best = scored[0];
+    // The trim floor is the adjusted chest (reference - 0.5").
+    // The shopper wants up to 0.5" tighter — that's the wiggle room.
+    // But if the winning size's chest goes BELOW that adjusted target,
+    // it's tighter than they asked for.
+    const trimFloor = adjustedChest; // reference.chest_inches - 0.5
+    if (best.sizeRow.chest_inches < trimFloor) {
+      // Find the next size up whose chest is at or above the trim floor
+      const nextUp = scored.find(
+        s => s.sizeRow.chest_inches >= trimFloor && s !== best
+      );
+      if (nextUp) {
+        // Swap: promote the safer size to first position
+        const nextIdx = scored.indexOf(nextUp);
+        scored[nextIdx] = best;
+        scored[0] = nextUp;
+        scored[0].fitGuard = 'trim_floor';
+      } else {
+        // No option at or above the trim floor — warn the shopper
+        best.fitGuard = 'trim_undersized';
+      }
+    }
+  }
+
+  if (fitPreference === 'relaxed' && scored.length >= 2) {
+    const best = scored[0];
+    // If the winning size's chest is LARGER than the relaxed-adjusted target
+    // but also way bigger than original reference, it could be excessively roomy
+    if (best.sizeRow.chest_inches > reference.chest_inches + 2.0) {
+      // Find a size that's closer to the original but still roomier
+      const nextDown = scored.find(
+        s => s.sizeRow.chest_inches <= reference.chest_inches + 2.0
+          && s.sizeRow.chest_inches > reference.chest_inches
+          && s !== best
+      );
+      if (nextDown) {
+        const nextIdx = scored.indexOf(nextDown);
+        scored[nextIdx] = best;
+        scored[0] = nextDown;
+        scored[0].fitGuard = 'relaxed_ceiling';
+      }
+    }
+  }
+
   return scored;
 }
 
@@ -246,10 +299,21 @@ function scoreToConfidence(score: number): number {
 }
 
 function buildFitNote(
-  best: { size: string; chestDiff: number; shoulderDiff: number; lengthDiff: number },
+  best: { size: string; chestDiff: number; shoulderDiff: number; lengthDiff: number; fitGuard?: string },
   reference: ExternalReferenceItem,
   fitPreference?: 'trim' | 'standard' | 'relaxed'
 ): string {
+  // Handle directional guard cases first
+  if (best.fitGuard === 'trim_floor') {
+    return `Size ${best.size} is our recommendation. A smaller size would run tighter than your ${reference.brand} ${reference.product_name}, so ${best.size} gives you a trim fit without going too small.`;
+  }
+  if (best.fitGuard === 'trim_undersized') {
+    return `Size ${best.size} is the closest available, but this garment runs small — even ${best.size} may fit tighter than your ${reference.brand} ${reference.product_name}.`;
+  }
+  if (best.fitGuard === 'relaxed_ceiling') {
+    return `Size ${best.size} gives you a relaxed fit without being excessively roomy compared to your ${reference.brand} ${reference.product_name}.`;
+  }
+
   const { chestDiff, shoulderDiff, lengthDiff } = best;
   const maxDiff = Math.max(chestDiff, shoulderDiff, lengthDiff);
 
