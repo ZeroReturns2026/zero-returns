@@ -10,6 +10,7 @@ import { eventsRouter } from './routes/events';
 import { webhookRouter } from './routes/webhooks';
 import { conversionsRouter } from './routes/conversions';
 import { profilesRouter } from './routes/profiles';
+import { authRouter } from './routes/auth';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -85,7 +86,7 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', origin);
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Private-Network', 'true');
-  res.header('Access-Control-Allow-Headers', 'content-type, accept, origin');
+  res.header('Access-Control-Allow-Headers', 'content-type, accept, origin, authorization');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Max-Age', '86400');
   if (req.method === 'OPTIONS') {
@@ -117,6 +118,7 @@ app.use('/api/recommend', recommendRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/conversions', conversionsRouter);
 app.use('/api/profiles', profilesRouter);
+app.use('/api/auth', authRouter);
 
 // Serve static assets (logos, etc.)
 app.use('/assets', express.static(path.resolve(__dirname)));

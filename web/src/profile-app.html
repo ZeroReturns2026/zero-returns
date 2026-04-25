@@ -350,6 +350,73 @@
     border-radius: 0 4px 4px 0;
   }
 
+  /* Auth bar */
+  .auth-bar {
+    max-width: 420px;
+    margin: 16px auto 0;
+    text-align: center;
+    font-size: 13px;
+    color: #8a9aaa;
+  }
+  .auth-bar a { color: #d4c9a8; cursor: pointer; text-decoration: underline; }
+  .auth-panel {
+    max-width: 420px;
+    margin: 8px auto;
+    background: rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .auth-panel input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #555;
+    border-radius: 6px;
+    background: #222;
+    color: #fff;
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  .auth-panel button {
+    width: 100%;
+    padding: 10px;
+    background: #3a6b40;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .auth-panel button:hover { background: #2d5033; }
+  .auth-panel .auth-toggle {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #8a9aaa;
+    text-align: center;
+  }
+  .auth-panel .auth-toggle a { color: #d4c9a8; cursor: pointer; text-decoration: underline; }
+  .auth-error {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: rgba(200,50,50,0.15);
+    border-left: 3px solid #c33;
+    color: #ffaaaa;
+    font-size: 12px;
+    display: none;
+    border-radius: 0 4px 4px 0;
+  }
+  .logged-in-bar {
+    max-width: 420px;
+    margin: 16px auto 0;
+    text-align: center;
+    font-size: 13px;
+    color: #d4c9a8;
+    display: none;
+  }
+  .logged-in-bar a { color: #c4a05a; cursor: pointer; text-decoration: underline; }
+
   /* Lookup bar */
   .lookup-bar {
     max-width: 420px;
@@ -390,6 +457,36 @@
 </style>
 </head>
 <body>
+
+<!-- Auth bar: shown when NOT logged in -->
+<div class="auth-bar" id="authBar">
+  <a id="authLoginToggle">Log in</a> or <a id="authRegisterToggle">create an account</a> to save your passport
+</div>
+
+<!-- Login panel -->
+<div class="auth-panel" id="loginPanel" style="display:none">
+  <input type="email" id="loginEmail" placeholder="Email">
+  <input type="password" id="loginPassword" placeholder="Password">
+  <button id="loginBtn">Log In</button>
+  <div class="auth-error" id="loginError"></div>
+  <div class="auth-toggle">Don't have an account? <a id="switchToRegister">Create one</a></div>
+</div>
+
+<!-- Register panel -->
+<div class="auth-panel" id="registerPanel" style="display:none">
+  <input type="text" id="regFirstName" placeholder="First name">
+  <input type="text" id="regLastName" placeholder="Last name">
+  <input type="email" id="regEmail" placeholder="Email">
+  <input type="password" id="regPassword" placeholder="Password (6+ characters)">
+  <button id="registerBtn">Create Account</button>
+  <div class="auth-error" id="registerError"></div>
+  <div class="auth-toggle">Already have an account? <a id="switchToLogin">Log in</a></div>
+</div>
+
+<!-- Logged in bar: shown when authenticated -->
+<div class="logged-in-bar" id="loggedInBar">
+  Logged in as <strong id="loggedInEmail"></strong> &nbsp; <a id="logoutBtn">Log out</a>
+</div>
 
 <div class="lookup-bar" id="lookupBar">
   Already have a passport? <a id="lookupToggle">Look up by email</a>
@@ -574,6 +671,137 @@
   var formError = document.getElementById("formError");
   var successPage = document.getElementById("successPage");
 
+  // ── Auth state ──
+  var authToken = localStorage.getItem("zrToken") || null;
+  var authBar = document.getElementById("authBar");
+  var loginPanel = document.getElementById("loginPanel");
+  var registerPanel = document.getElementById("registerPanel");
+  var loggedInBar = document.getElementById("loggedInBar");
+
+  function setLoggedIn(token, email) {
+    authToken = token;
+    localStorage.setItem("zrToken", token);
+    authBar.style.display = "none";
+    loginPanel.style.display = "none";
+    registerPanel.style.display = "none";
+    loggedInBar.style.display = "block";
+    document.getElementById("loggedInEmail").textContent = email;
+    document.getElementById("lookupBar").style.display = "none";
+    document.getElementById("lookupInline").style.display = "none";
+  }
+
+  function setLoggedOut() {
+    authToken = null;
+    localStorage.removeItem("zrToken");
+    authBar.style.display = "block";
+    loginPanel.style.display = "none";
+    registerPanel.style.display = "none";
+    loggedInBar.style.display = "none";
+    document.getElementById("lookupBar").style.display = "block";
+  }
+
+  // Panel toggles
+  document.getElementById("authLoginToggle").addEventListener("click", function() {
+    loginPanel.style.display = "block";
+    registerPanel.style.display = "none";
+    document.getElementById("loginEmail").focus();
+  });
+  document.getElementById("authRegisterToggle").addEventListener("click", function() {
+    registerPanel.style.display = "block";
+    loginPanel.style.display = "none";
+    document.getElementById("regFirstName").focus();
+  });
+  document.getElementById("switchToRegister").addEventListener("click", function() {
+    registerPanel.style.display = "block";
+    loginPanel.style.display = "none";
+  });
+  document.getElementById("switchToLogin").addEventListener("click", function() {
+    loginPanel.style.display = "block";
+    registerPanel.style.display = "none";
+  });
+  document.getElementById("logoutBtn").addEventListener("click", function(e) {
+    e.preventDefault();
+    setLoggedOut();
+    // Clear form
+    form.reset();
+    stamps = [];
+    renderStamps();
+    form.style.display = "block";
+    successPage.style.display = "none";
+    saveBtn.textContent = "SAVE PASSPORT";
+  });
+
+  // ── Login ──
+  document.getElementById("loginBtn").addEventListener("click", function() {
+    var email = document.getElementById("loginEmail").value.trim();
+    var password = document.getElementById("loginPassword").value;
+    var errEl = document.getElementById("loginError");
+    errEl.style.display = "none";
+    if (!email || !password) { errEl.textContent = "Email and password required."; errEl.style.display = "block"; return; }
+    this.disabled = true;
+    this.textContent = "...";
+    var btn = this;
+
+    fetch(API + "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: email, password: password })
+    })
+      .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+      .then(function(res) {
+        btn.disabled = false; btn.textContent = "LOG IN";
+        if (!res.ok) { errEl.textContent = res.data.error || "Login failed."; errEl.style.display = "block"; return; }
+        setLoggedIn(res.data.token, res.data.user.email);
+        if (res.data.profile) { fillForm(res.data); }
+        if (res.data.items && res.data.items.length > 0) { saveBtn.textContent = "UPDATE PASSPORT"; }
+      })
+      .catch(function() { btn.disabled = false; btn.textContent = "LOG IN"; errEl.textContent = "Connection error."; errEl.style.display = "block"; });
+  });
+
+  // ── Register ──
+  document.getElementById("registerBtn").addEventListener("click", function() {
+    var firstName = document.getElementById("regFirstName").value.trim();
+    var lastName = document.getElementById("regLastName").value.trim();
+    var email = document.getElementById("regEmail").value.trim();
+    var password = document.getElementById("regPassword").value;
+    var errEl = document.getElementById("registerError");
+    errEl.style.display = "none";
+    if (!email || !password) { errEl.textContent = "Email and password required."; errEl.style.display = "block"; return; }
+    if (password.length < 6) { errEl.textContent = "Password must be at least 6 characters."; errEl.style.display = "block"; return; }
+    this.disabled = true;
+    this.textContent = "...";
+    var btn = this;
+
+    fetch(API + "/api/auth/register", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: email, password: password, firstName: firstName, lastName: lastName })
+    })
+      .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+      .then(function(res) {
+        btn.disabled = false; btn.textContent = "CREATE ACCOUNT";
+        if (!res.ok) { errEl.textContent = res.data.error || "Registration failed."; errEl.style.display = "block"; return; }
+        setLoggedIn(res.data.token, res.data.user.email);
+        // Pre-fill name and email into the form
+        document.getElementById("firstName").value = firstName;
+        document.getElementById("lastName").value = lastName;
+        document.getElementById("email").value = email;
+      })
+      .catch(function() { btn.disabled = false; btn.textContent = "CREATE ACCOUNT"; errEl.textContent = "Connection error."; errEl.style.display = "block"; });
+  });
+
+  // ── Auto-login on page load if token exists ──
+  if (authToken) {
+    fetch(API + "/api/auth/me", { headers: { "Authorization": "Bearer " + authToken } })
+      .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
+      .then(function(data) {
+        setLoggedIn(authToken, data.user.email);
+        if (data.profile) { fillForm(data); }
+        if (data.items && data.items.length > 0) { saveBtn.textContent = "UPDATE PASSPORT"; }
+      })
+      .catch(function() { setLoggedOut(); });
+  }
+
   // Sync height dropdowns to hidden field
   var heightFeet = document.getElementById("heightFeet");
   var heightInches = document.getElementById("heightInches");
@@ -698,9 +926,12 @@
     saveBtn.disabled = true;
     saveBtn.textContent = "ISSUING PASSPORT...";
 
+    var headers = { "content-type": "application/json" };
+    if (authToken) { headers["Authorization"] = "Bearer " + authToken; }
+
     fetch(API + "/api/profiles", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: headers,
       body: JSON.stringify({
         email: email,
         firstName: document.getElementById("firstName").value.trim(),
