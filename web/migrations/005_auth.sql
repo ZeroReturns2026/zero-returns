@@ -1,11 +1,11 @@
 -- Auth: user accounts for persistent login
 CREATE TABLE IF NOT EXISTS auth_users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   profile_id INTEGER,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  last_login_at TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  last_login_at TIMESTAMPTZ,
   FOREIGN KEY (profile_id) REFERENCES shopper_profiles(id)
 );
 

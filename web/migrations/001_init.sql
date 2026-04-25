@@ -1,25 +1,25 @@
--- Hey Tailor — initial schema (SQLite)
+-- Hey Tailor — initial schema (PostgreSQL)
 
 CREATE TABLE IF NOT EXISTS merchants (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   shop_domain TEXT UNIQUE NOT NULL,
   display_name TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS products (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   merchant_id INTEGER NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
   shopify_product_id TEXT NOT NULL,
   handle TEXT NOT NULL,
   title TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'mens_top',
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (merchant_id, shopify_product_id)
 );
 
 CREATE TABLE IF NOT EXISTS product_sizes (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   size_label TEXT NOT NULL,
   chest_inches REAL NOT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS product_sizes (
 );
 
 CREATE TABLE IF NOT EXISTS external_reference_items (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   brand TEXT NOT NULL,
   product_name TEXT NOT NULL,
   item_type TEXT NOT NULL,
@@ -40,19 +40,19 @@ CREATE TABLE IF NOT EXISTS external_reference_items (
 );
 
 CREATE TABLE IF NOT EXISTS fit_profiles (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   anon_id TEXT UNIQUE,
   preferred_fit TEXT CHECK (preferred_fit IN ('trim', 'standard', 'relaxed')),
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   merchant_id INTEGER REFERENCES merchants(id) ON DELETE SET NULL,
   product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
   event_type TEXT NOT NULL,
   payload TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at DESC);

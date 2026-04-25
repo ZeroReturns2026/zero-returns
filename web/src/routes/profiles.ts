@@ -1,19 +1,7 @@
 import { Router } from 'express';
-import { query, queryOne, db } from '../db';
-import fs from 'fs';
-import path from 'path';
+import { query, queryOne } from '../db';
 import ExcelJS from 'exceljs';
 import { normalizeBrand, normalizeFit } from '../services/brandNormalizer';
-
-// Run migration on import
-const migrationPath = path.resolve(__dirname, '../../migrations/004_profiles.sql');
-if (fs.existsSync(migrationPath)) {
-  try {
-    db.exec(fs.readFileSync(migrationPath, 'utf-8'));
-  } catch (_) {
-    // Tables already exist — fine
-  }
-}
 
 export const profilesRouter = Router();
 
@@ -320,21 +308,20 @@ profilesRouter.post('/', async (req, res) => {
       // Clear existing items and re-insert
       await query(`DELETE FROM profile_items WHERE profile_id = $1`, [profile.id]);
 
-      const insertItem = db.prepare(
-        `INSERT INTO profile_items (profile_id, brand, product_name, size_label, fit_rating, is_primary)
-         VALUES (?, ?, ?, ?, ?, ?)`
-      );
-
       for (const item of body.items) {
         if (item.brand && item.productName && item.sizeLabel) {
           const normalBrand = normalizeBrand(item.brand);
-          insertItem.run(
-            profile.id,
-            normalBrand,
-            normalizeFit(normalBrand, item.productName),
-            item.sizeLabel.trim().toUpperCase(),
-            item.fitRating || '',
-            item.isPrimary ? 1 : 0
+          await query(
+            `INSERT INTO profile_items (profile_id, brand, product_name, size_label, fit_rating, is_primary)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              profile.id,
+              normalBrand,
+              normalizeFit(normalBrand, item.productName),
+              item.sizeLabel.trim().toUpperCase(),
+              item.fitRating || '',
+              item.isPrimary ? 1 : 0,
+            ]
           );
         }
       }
@@ -372,16 +359,17 @@ profilesRouter.post('/', async (req, res) => {
           [email]
         );
         if (newResp) {
-          const insertSurveyItem = db.prepare(
-            `INSERT INTO survey_items (respondent_id, slot, brand, product_name, size_label, fit_rating)
-             VALUES (?, ?, ?, ?, ?, ?)`
-          );
-          body.items.forEach((item, i) => {
+          for (let i = 0; i < body.items.length; i++) {
+            const item = body.items[i];
             if (item.brand && item.sizeLabel) {
               const nb = normalizeBrand(item.brand);
-              insertSurveyItem.run(newResp.id, i + 1, nb, normalizeFit(nb, item.productName?.trim() || ''), item.sizeLabel.trim().toUpperCase(), item.fitRating || '');
+              await query(
+                `INSERT INTO survey_items (respondent_id, slot, brand, product_name, size_label, fit_rating)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [newResp.id, i + 1, nb, normalizeFit(nb, item.productName?.trim() || ''), item.sizeLabel.trim().toUpperCase(), item.fitRating || '']
+              );
             }
-          });
+          }
         }
       }
     } catch (_) {

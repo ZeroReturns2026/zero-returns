@@ -1,17 +1,16 @@
 -- Closet reports: every (brand, product, size, fit_rating) a customer has
 -- told us they own, coming in from the Zero Returns Google Sheet sync.
--- These are UNMEASURED until an admin promotes them into external_reference_items.
 
 CREATE TABLE IF NOT EXISTS closet_reports (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   source TEXT NOT NULL DEFAULT 'zero_returns',
-  submission_id TEXT NOT NULL,             -- timestamp+email from the form, for dedupe
+  submission_id TEXT NOT NULL,
   customer_email TEXT,
   brand TEXT NOT NULL,
   product_name TEXT NOT NULL,
   size_label TEXT NOT NULL,
-  fit_rating TEXT,                         -- raw value from the form, normalized lowercase
-  reported_at TEXT NOT NULL DEFAULT (datetime('now')),
+  fit_rating TEXT,
+  reported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (source, submission_id, brand, product_name, size_label)
 );
 
