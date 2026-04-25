@@ -3,31 +3,19 @@
  *
  * Usage:
  *   npm run survey:import -- path/to/responses.csv
- *
- * Or with the Google Sheets public CSV URL:
- *   npm run survey:import -- --url "https://docs.google.com/spreadsheets/d/SHEET_ID/export?format=csv"
- *
- * The script is idempotent — it uses the respondent's email as a unique key.
- * Running it again with updated data will skip existing respondents (or update
- * them if you pass --update).
  */
 
 import fs from 'fs';
 import path from 'path';
-import { db, execScript, close } from '../src/db';
+import { query, queryOne, execScript, close } from '../src/db';
 
-// ---------------------------------------------------------------------------
 // Ensure migration has run
-// ---------------------------------------------------------------------------
 const migrationPath = path.resolve(__dirname, '../migrations/003_survey_data.sql');
 if (fs.existsSync(migrationPath)) {
   const sql = fs.readFileSync(migrationPath, 'utf-8');
   execScript(sql);
 }
 
-// ---------------------------------------------------------------------------
-// Minimal CSV parser (handles quoted fields with commas and newlines)
-// ---------------------------------------------------------------------------
 function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -41,7 +29,7 @@ function parseCSV(text: string): string[][] {
     if (inQuotes) {
       if (ch === '"' && next === '"') {
         field += '"';
-        i++; // skip escaped quote
+        i++;
       } else if (ch === '"') {
         inQuotes = false;
       } else {
@@ -58,22 +46,18 @@ function parseCSV(text: string): string[][] {
         if (row.some(f => f !== '')) rows.push(row);
         row = [];
         field = '';
-        if (ch === '\r') i++; // skip \n after \r
+        if (ch === '\r') i++;
       } else {
         field += ch;
       }
     }
   }
-  // Last field/row
   row.push(field.trim());
   if (row.some(f => f !== '')) rows.push(row);
 
   return rows;
 }
 
-// ---------------------------------------------------------------------------
-// Column mapping — maps your Google Sheet headers to our fields
-// ---------------------------------------------------------------------------
 interface ColumnMap {
   [header: string]: string;
 }
@@ -96,13 +80,9 @@ const HEADER_MAP: ColumnMap = {
   additionalnotes: 'additional_notes',
 };
 
-// Garment slot pattern: garmentN_brand, garmentN_product, garmentN_size, garmentN_fit
 const GARMENT_PATTERN = /^garment(\d+)_(brand|product|size|fit)$/i;
 
-// ---------------------------------------------------------------------------
-// Main import
-// ---------------------------------------------------------------------------
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   let csvPath: string | undefined;
   let doUpdate = false;
@@ -114,11 +94,6 @@ function main() {
 
   if (!csvPath) {
     console.error('Usage: npm run survey:import -- path/to/responses.csv [--update]');
-    console.error('');
-    console.error('To export from Google Sheets:');
-    console.error('  1. Open your sheet in Google Sheets');
-    console.error('  2. File → Download → Comma-separated values (.csv)');
-    console.error('  3. Run this script with the downloaded file');
     process.exit(1);
   }
 
@@ -134,57 +109,24 @@ function main() {
   const dataRows = rows.slice(1);
 
   console.log(`Found ${dataRows.length} response(s) with ${headers.length} columns.`);
-  console.log(`Headers: ${headers.join(', ')}`);
 
-  // Build column index maps
   const colIndex: { [field: string]: number } = {};
   const garmentCols: { [slot: number]: { [part: string]: number } } = {};
 
   headers.forEach((h, i) => {
-    // Check respondent-level fields
     if (HEADER_MAP[h]) {
       colIndex[HEADER_MAP[h]] = i;
     }
-
-    // Check garment fields
     const gMatch = h.match(GARMENT_PATTERN);
     if (gMatch) {
       const slot = parseInt(gMatch[1], 10);
-      const part = gMatch[2].toLowerCase(); // brand, product, size, fit
+      const part = gMatch[2].toLowerCase();
       if (!garmentCols[slot]) garmentCols[slot] = {};
       garmentCols[slot][part] = i;
     }
-
-    // Also map otherBrand / otherProduct
     if (h === 'otherbrand') colIndex['other_brand'] = i;
     if (h === 'otherproduct') colIndex['other_product'] = i;
   });
-
-  // Prepare statements
-  const insertRespondent = db.prepare(`
-    INSERT INTO survey_respondents
-      (email, first_name, last_name, gender, height, weight, build_type,
-       chest_measurement, fit_preference, buying_habits, return_frequency,
-       frustrations, likelihood_score, additional_notes, submitted_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const updateRespondent = db.prepare(`
-    UPDATE survey_respondents SET
-      first_name = ?, last_name = ?, gender = ?, height = ?, weight = ?,
-      build_type = ?, chest_measurement = ?, fit_preference = ?,
-      buying_habits = ?, return_frequency = ?, frustrations = ?,
-      likelihood_score = ?, additional_notes = ?, submitted_at = ?
-    WHERE email = ?
-  `);
-
-  const findRespondent = db.prepare(`SELECT id FROM survey_respondents WHERE email = ?`);
-  const deleteItems = db.prepare(`DELETE FROM survey_items WHERE respondent_id = ?`);
-
-  const insertItem = db.prepare(`
-    INSERT INTO survey_items (respondent_id, slot, brand, product_name, size_label, fit_rating)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
 
   function col(row: string[], field: string): string {
     const idx = colIndex[field];
@@ -203,44 +145,57 @@ function main() {
       continue;
     }
 
-    const existing = findRespondent.get(email) as any;
+    const existing = await queryOne<any>(`SELECT id FROM survey_respondents WHERE email = $1`, [email]);
 
     let respondentId: number;
 
     if (existing && doUpdate) {
-      // Update existing respondent
-      updateRespondent.run(
-        col(row, 'first_name'), col(row, 'last_name'), col(row, 'gender'),
-        col(row, 'height'), col(row, 'weight'), col(row, 'build_type'),
-        col(row, 'chest_measurement'), col(row, 'fit_preference'),
-        col(row, 'buying_habits'), col(row, 'return_frequency'),
-        col(row, 'frustrations'),
-        col(row, 'likelihood_score') ? parseInt(col(row, 'likelihood_score'), 10) : null,
-        col(row, 'additional_notes'), col(row, 'submitted_at'),
-        email
+      await query(
+        `UPDATE survey_respondents SET
+          first_name = $1, last_name = $2, gender = $3, height = $4, weight = $5,
+          build_type = $6, chest_measurement = $7, fit_preference = $8,
+          buying_habits = $9, return_frequency = $10, frustrations = $11,
+          likelihood_score = $12, additional_notes = $13, submitted_at = $14
+        WHERE email = $15`,
+        [
+          col(row, 'first_name'), col(row, 'last_name'), col(row, 'gender'),
+          col(row, 'height'), col(row, 'weight'), col(row, 'build_type'),
+          col(row, 'chest_measurement'), col(row, 'fit_preference'),
+          col(row, 'buying_habits'), col(row, 'return_frequency'),
+          col(row, 'frustrations'),
+          col(row, 'likelihood_score') ? parseInt(col(row, 'likelihood_score'), 10) : null,
+          col(row, 'additional_notes'), col(row, 'submitted_at'),
+          email
+        ]
       );
       respondentId = existing.id;
-      deleteItems.run(respondentId); // Re-import items
+      await query(`DELETE FROM survey_items WHERE respondent_id = $1`, [respondentId]);
       updated++;
     } else if (existing) {
       skipped++;
       continue;
     } else {
-      // Insert new respondent
-      const info = insertRespondent.run(
-        email, col(row, 'first_name'), col(row, 'last_name'), col(row, 'gender'),
-        col(row, 'height'), col(row, 'weight'), col(row, 'build_type'),
-        col(row, 'chest_measurement'), col(row, 'fit_preference'),
-        col(row, 'buying_habits'), col(row, 'return_frequency'),
-        col(row, 'frustrations'),
-        col(row, 'likelihood_score') ? parseInt(col(row, 'likelihood_score'), 10) : null,
-        col(row, 'additional_notes'), col(row, 'submitted_at')
+      const result = await query<any>(
+        `INSERT INTO survey_respondents
+          (email, first_name, last_name, gender, height, weight, build_type,
+           chest_measurement, fit_preference, buying_habits, return_frequency,
+           frustrations, likelihood_score, additional_notes, submitted_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        RETURNING id`,
+        [
+          email, col(row, 'first_name'), col(row, 'last_name'), col(row, 'gender'),
+          col(row, 'height'), col(row, 'weight'), col(row, 'build_type'),
+          col(row, 'chest_measurement'), col(row, 'fit_preference'),
+          col(row, 'buying_habits'), col(row, 'return_frequency'),
+          col(row, 'frustrations'),
+          col(row, 'likelihood_score') ? parseInt(col(row, 'likelihood_score'), 10) : null,
+          col(row, 'additional_notes'), col(row, 'submitted_at')
+        ]
       );
-      respondentId = Number(info.lastInsertRowid);
+      respondentId = result[0].id;
       imported++;
     }
 
-    // Import garment items (slots 1-5)
     for (const slotStr of Object.keys(garmentCols).sort()) {
       const slot = parseInt(slotStr, 10);
       const cols = garmentCols[slot];
@@ -250,25 +205,26 @@ function main() {
       const fit = cols.fit !== undefined ? (row[cols.fit] || '').trim() : '';
 
       if (brand && product && size) {
-        insertItem.run(respondentId, slot, brand, product, size, fit || null);
+        await query(
+          `INSERT INTO survey_items (respondent_id, slot, brand, product_name, size_label, fit_rating)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [respondentId, slot, brand, product, size, fit || null]
+        );
         itemCount++;
       }
     }
   }
 
-  close();
+  await close();
 
-  console.log('');
-  console.log(`✓ Import complete:`);
+  console.log(`\n✓ Import complete:`);
   console.log(`  ${imported} new respondent(s)`);
   if (doUpdate) console.log(`  ${updated} updated respondent(s)`);
-  console.log(`  ${skipped} skipped (${doUpdate ? 'no email' : 'already exists or no email'})`);
+  console.log(`  ${skipped} skipped`);
   console.log(`  ${itemCount} garment items`);
 }
 
-try {
-  main();
-} catch (err) {
+main().catch((err) => {
   console.error('Import failed:', err);
   process.exit(1);
-}
+});
