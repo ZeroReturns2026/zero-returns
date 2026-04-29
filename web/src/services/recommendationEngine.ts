@@ -1,5 +1,6 @@
 import { ProductSize, ExternalReferenceItem, RecommendationResponse } from '../types';
 import { query } from '../db';
+import { normalizeBrand } from './brandNormalizer';
 
 const CHEST_WEIGHT = 0.5;
 const SHOULDER_WEIGHT = 0.3;
@@ -38,13 +39,18 @@ async function getCollaborativeSignal(
   productSizes: ProductSize[],
   targetProductTitle?: string,
 ): Promise<CollaborativeMatch | null> {
-  // Find survey respondents who own this brand in this size
+  // Normalize the incoming brand so typo'd or abbreviated input still matches
+  // the canonical brand names stored in survey_items.
+  const referenceBrand = normalizeBrand(reference.brand);
+
+  // Find survey respondents who own this brand in this size.
+  // We also check survey_items writes pre-normalization, so still LOWER-compare.
   const matchingItems = await query<any>(
     `SELECT si.respondent_id, si.brand, si.product_name, si.size_label, si.fit_rating
      FROM survey_items si
      WHERE LOWER(si.brand) = LOWER($1)
        AND LOWER(si.size_label) = LOWER($2)`,
-    [reference.brand, reference.size_label]
+    [referenceBrand, reference.size_label]
   );
 
   if (matchingItems.length === 0) return null;

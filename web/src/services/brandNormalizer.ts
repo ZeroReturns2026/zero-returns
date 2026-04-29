@@ -101,9 +101,61 @@ const BRAND_ALIASES: Record<string, string> = {
 };
 
 /**
+ * Levenshtein distance — number of single-character edits to transform a → b.
+ */
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+
+  const prev = new Array(b.length + 1);
+  const curr = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+  }
+  return prev[b.length];
+}
+
+/**
+ * How many character edits we tolerate when fuzzy-matching to an alias.
+ * Strict for short strings (avoid false positives like "polo" → anything),
+ * looser for longer ones where typos are more likely.
+ */
+function fuzzyThreshold(a: string, b: string): number {
+  const minLen = Math.min(a.length, b.length);
+  if (minLen < 4) return 0;          // exact only for very short inputs
+  if (minLen <= 7) return 1;         // 1 edit allowed for medium
+  return 2;                          // 2 edits allowed for long
+}
+
+/**
+ * Find the closest alias key for an input, returning its canonical brand
+ * if within the fuzzy threshold. Returns null if nothing close enough.
+ */
+function fuzzyBrandMatch(lowerInput: string): string | null {
+  let best: { key: string; dist: number } | null = null;
+  for (const key of Object.keys(BRAND_ALIASES)) {
+    const threshold = fuzzyThreshold(lowerInput, key);
+    if (threshold === 0) continue;
+    const dist = levenshtein(lowerInput, key);
+    if (dist <= threshold && (!best || dist < best.dist)) {
+      best = { key, dist };
+    }
+  }
+  return best ? BRAND_ALIASES[best.key] : null;
+}
+
+/**
  * Normalize a brand name to its canonical form.
- * Returns the canonical name if found, otherwise returns the original
- * with proper title casing.
+ * Returns the canonical name if found (exact or fuzzy match), otherwise
+ * returns the trimmed original.
  */
 export function normalizeBrand(input: string): string {
   if (!input) return input;
@@ -111,6 +163,8 @@ export function normalizeBrand(input: string): string {
   if (BRAND_ALIASES[lower]) {
     return BRAND_ALIASES[lower];
   }
+  const fuzzy = fuzzyBrandMatch(lower);
+  if (fuzzy) return fuzzy;
   return input.trim();
 }
 
@@ -157,7 +211,7 @@ const FIT_ALIASES: Record<string, Record<string, string>> = {
 
 /**
  * Normalize a product/fit name based on the brand.
- * Returns the canonical fit name if found, otherwise the original.
+ * Returns the canonical fit name if found (exact or fuzzy match), otherwise the original.
  */
 export function normalizeFit(brand: string, productName: string): string {
   if (!productName) return productName;
@@ -166,5 +220,18 @@ export function normalizeFit(brand: string, productName: string): string {
   if (!fits) return productName.trim();
   const lower = productName.trim().toLowerCase();
   if (fits[lower]) return fits[lower];
+
+  // Fuzzy fallback within the brand's known fit aliases
+  let best: { key: string; dist: number } | null = null;
+  for (const key of Object.keys(fits)) {
+    const threshold = fuzzyThreshold(lower, key);
+    if (threshold === 0) continue;
+    const dist = levenshtein(lower, key);
+    if (dist <= threshold && (!best || dist < best.dist)) {
+      best = { key, dist };
+    }
+  }
+  if (best) return fits[best.key];
+
   return productName.trim();
 }

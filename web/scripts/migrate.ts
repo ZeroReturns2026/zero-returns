@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { execScript, close } from '../src/db';
 
-function main() {
+async function main() {
   // Support running from compiled dist/ or from source
   let migrationsDir = path.resolve(__dirname, '../migrations');
   if (!fs.existsSync(migrationsDir)) {
@@ -17,17 +17,15 @@ function main() {
   for (const file of files) {
     const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
     console.log(`  → Applying ${file}`);
-    execScript(sql);
+    await execScript(sql);
     console.log(`  ✓ ${file} applied`);
   }
 
-  close();
+  await close();
   console.log('Migrations complete.');
 }
 
-try {
-  main();
-} catch (err) {
+main().catch((err) => {
   console.error('Migration failed:', err);
   process.exit(1);
-}
+});

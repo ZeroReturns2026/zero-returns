@@ -14,7 +14,8 @@
     "seed": "tsx --no-warnings scripts/seed.ts",
     "sync": "tsx --no-warnings scripts/sync-sheet.ts",
     "admin": "tsx --no-warnings scripts/admin.ts",
-    "survey:import": "tsx --no-warnings scripts/import-survey.ts"
+    "survey:import": "tsx --no-warnings scripts/import-survey.ts",
+    "backfill:normalize": "tsx --no-warnings scripts/backfill-normalize.ts"
   },
   "dependencies": {
     "@types/pg": "^8.20.0",
