@@ -540,7 +540,7 @@
       </div>
       <div class="step" data-step="4">
         <div class="step-heading">Stamp your wardrobe</div>
-        <div class="step-sub">Add a few items you already own and love. The more we know, the better we match.</div>
+        <div class="step-sub">Add items you already own and love — no limit. Come back anytime to add more, and the recommendations get sharper with every stamp.</div>
         <div class="stamps-area" id="stampsArea">
           <div class="empty-stamps" id="emptyMsg">No stamps yet — add your first item below</div>
         </div>
@@ -645,16 +645,25 @@
   var registerPanel = document.getElementById("registerPanel");
   var lookupPanel = document.getElementById("lookupPanel");
   function closeAllPanels() { loginPanel.classList.remove("open"); registerPanel.classList.remove("open"); lookupPanel.classList.remove("open"); }
+  // Tracks which email's passport is currently loaded — used to decide
+  // whether the logged-in user owns these stamps and can delete them.
+  var loggedInEmail = null;
+  var loadedProfileEmail = null;
   function setLoggedIn(token, email) {
     authToken = token; localStorage.setItem("zrToken", token);
+    loggedInEmail = (email || "").toLowerCase();
     topBar.style.display = "none"; loggedInBar.style.display = "flex";
     document.getElementById("loggedInEmail").textContent = email;
     closeAllPanels();
   }
   function setLoggedOut() {
     authToken = null; localStorage.removeItem("zrToken");
+    loggedInEmail = null;
     topBar.style.display = "flex"; loggedInBar.style.display = "none";
     closeAllPanels();
+  }
+  function ownsLoadedPassport() {
+    return !!(loggedInEmail && loadedProfileEmail && loggedInEmail === loadedProfileEmail);
   }
   document.getElementById("authToggle").addEventListener("click", function() {
     var open = loginPanel.classList.contains("open");
@@ -737,7 +746,9 @@
   heightFeet.addEventListener("change", syncHeight);
   heightInches.addEventListener("change", syncHeight);
   var COLORS = ["stamp-0","stamp-1","stamp-2","stamp-3","stamp-4"];
-  var MAX_STAMPS = 5;
+  // Stamps are now additive — no cap. Each stamp object has an optional `id`
+  // when it's already saved server-side, so the X button can call the
+  // DELETE endpoint instead of just dropping it from local state.
   addTrigger.addEventListener("click", function() {
     addFormWrap.style.display = addFormWrap.style.display === "none" ? "block" : "none";
     if (addFormWrap.style.display === "block") document.getElementById("newBrand").focus();
@@ -748,14 +759,12 @@
     var size = document.getElementById("newSize").value;
     var fit = document.getElementById("newFit").value;
     if (!brand || !size) { alert("Brand and size are required to stamp your passport."); return; }
-    if (stamps.length >= MAX_STAMPS) { alert("Maximum 5 stamps per passport."); return; }
     stamps.push({ brand: brand, productName: product || brand + " Polo", sizeLabel: size, fitRating: fit });
     renderStamps();
     document.getElementById("newBrand").value = "";
     document.getElementById("newProduct").value = "";
     document.getElementById("newSize").value = "";
     document.getElementById("newFit").value = "";
-    if (stamps.length >= MAX_STAMPS) { addFormWrap.style.display = "none"; addTrigger.style.display = "none"; }
   });
   function renderStamps() {
     var existing = stampsArea.querySelectorAll(".stamp");
@@ -773,8 +782,21 @@
     for (var k = 0; k < removeBtns.length; k++) {
       removeBtns[k].addEventListener("click", function() {
         var idx = parseInt(this.dataset.idx, 10);
-        stamps.splice(idx, 1); renderStamps();
-        if (stamps.length < MAX_STAMPS) addTrigger.style.display = "block";
+        var stamp = stamps[idx];
+        if (!stamp) return;
+        // If this stamp has been saved server-side, ask the server to delete it
+        // before dropping it locally. New (unsaved) stamps just disappear locally.
+        if (stamp.id && authToken) {
+          var headers = { "Authorization": "Bearer " + authToken };
+          fetch(API + "/api/profiles/items/" + stamp.id, { method: "DELETE", headers: headers })
+            .then(function(r) {
+              if (!r.ok) { alert("Could not remove that stamp — please try again."); return; }
+              stamps.splice(idx, 1); renderStamps();
+            })
+            .catch(function() { alert("Connection error — stamp not removed."); });
+        } else {
+          stamps.splice(idx, 1); renderStamps();
+        }
       });
     }
   }
@@ -834,6 +856,7 @@
   });
   function fillForm(data) {
     var p = data.profile;
+    loadedProfileEmail = (p.email || "").toLowerCase();
     document.getElementById("firstName").value = p.firstName || "";
     document.getElementById("lastName").value = p.lastName || "";
     document.getElementById("email").value = p.email || "";
@@ -860,7 +883,13 @@
     stamps = [];
     if (data.items) {
       for (var i = 0; i < data.items.length; i++) {
-        stamps.push({ brand: data.items[i].brand, productName: data.items[i].productName, sizeLabel: data.items[i].sizeLabel, fitRating: data.items[i].fitRating || "" });
+        stamps.push({
+          id: data.items[i].id,           // server-side id — enables DELETE
+          brand: data.items[i].brand,
+          productName: data.items[i].productName,
+          sizeLabel: data.items[i].sizeLabel,
+          fitRating: data.items[i].fitRating || ""
+        });
       }
     }
     renderStamps(); goToStep(1);

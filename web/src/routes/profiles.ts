@@ -1,9 +1,31 @@
 import { Router } from 'express';
+import jwt from 'jsonwebtoken';
 import { query, queryOne } from '../db';
 import ExcelJS from 'exceljs';
 import { normalizeBrand, normalizeFit } from '../services/brandNormalizer';
 
 export const profilesRouter = Router();
+
+const JWT_SECRET = process.env.JWT_SECRET || 'zero-returns-dev-secret-change-in-prod';
+
+/**
+ * Verify a Bearer token and return the auth_users row, or null if invalid.
+ */
+async function authedUser(req: any): Promise<any | null> {
+  const authHeader = req.headers?.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded: any = jwt.verify(token, JWT_SECRET);
+    const user = await queryOne<any>(
+      `SELECT * FROM auth_users WHERE id = $1`,
+      [decoded.userId]
+    );
+    return user || null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * GET /profiles — List all profiles (for dashboard)
@@ -303,26 +325,51 @@ profilesRouter.post('/', async (req, res) => {
       );
     }
 
-    // Update items if provided
+    // ─── Items: ADDITIVE upsert ────────────────────────────────────────
+    // Preserve all stamps the user has ever added. For each incoming stamp:
+    //   - if a matching (brand, product_name, size_label) row already exists
+    //     for this profile, update its fit_rating (allow refinement)
+    //   - otherwise insert a new row
+    // Existing stamps that aren't in the request are LEFT IN PLACE — the
+    // /api/profile-items/:id DELETE endpoint is the only path that removes data.
     if (body.items && body.items.length > 0) {
-      // Clear existing items and re-insert
-      await query(`DELETE FROM profile_items WHERE profile_id = $1`, [profile.id]);
-
       for (const item of body.items) {
         if (item.brand && item.productName && item.sizeLabel) {
           const normalBrand = normalizeBrand(item.brand);
-          await query(
-            `INSERT INTO profile_items (profile_id, brand, product_name, size_label, fit_rating, is_primary)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [
-              profile.id,
-              normalBrand,
-              normalizeFit(normalBrand, item.productName),
-              item.sizeLabel.trim().toUpperCase(),
-              item.fitRating || '',
-              item.isPrimary ? 1 : 0,
-            ]
+          const normalProduct = normalizeFit(normalBrand, item.productName);
+          const sizeLabel = item.sizeLabel.trim().toUpperCase();
+
+          const existing = await queryOne<any>(
+            `SELECT id FROM profile_items
+             WHERE profile_id = $1
+               AND LOWER(brand) = LOWER($2)
+               AND LOWER(product_name) = LOWER($3)
+               AND LOWER(size_label) = LOWER($4)`,
+            [profile.id, normalBrand, normalProduct, sizeLabel]
           );
+
+          if (existing) {
+            // Same garment — refine the fit_rating if a new one was supplied
+            if (item.fitRating) {
+              await query(
+                `UPDATE profile_items SET fit_rating = $1 WHERE id = $2`,
+                [item.fitRating, existing.id]
+              );
+            }
+          } else {
+            await query(
+              `INSERT INTO profile_items (profile_id, brand, product_name, size_label, fit_rating, is_primary)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [
+                profile.id,
+                normalBrand,
+                normalProduct,
+                sizeLabel,
+                item.fitRating || '',
+                item.isPrimary ? 1 : 0,
+              ]
+            );
+          }
         }
       }
     }
@@ -333,13 +380,39 @@ profilesRouter.post('/', async (req, res) => {
       [profile.id]
     );
 
-    // Also feed into survey_items for collaborative filtering
+    // ─── Mirror to survey tables (the engine reads these) ──────────────
+    // Always upsert — every passport save flows into the engine's data,
+    // including refinements to existing stamps. Items are deduped on
+    // (respondent_id, brand, product_name, size_label) so the engine never
+    // sees duplicate votes from a single shopper.
     try {
-      const surveyRespondent = await queryOne<any>(
+      let respondent = await queryOne<any>(
         `SELECT id FROM survey_respondents WHERE email = $1`,
         [email]
       );
-      if (!surveyRespondent && body.items && body.items.length > 0) {
+      if (respondent) {
+        await query(
+          `UPDATE survey_respondents SET
+            first_name = COALESCE(NULLIF($1, ''), first_name),
+            last_name = COALESCE(NULLIF($2, ''), last_name),
+            height = COALESCE(NULLIF($3, ''), height),
+            weight = COALESCE(NULLIF($4, ''), weight),
+            build_type = COALESCE(NULLIF($5, ''), build_type),
+            chest_measurement = COALESCE(NULLIF($6, ''), chest_measurement),
+            fit_preference = COALESCE(NULLIF($7, ''), fit_preference)
+          WHERE id = $8`,
+          [
+            body.firstName || '',
+            body.lastName || '',
+            body.height || '',
+            body.weight || '',
+            body.buildType || '',
+            body.chestMeasurement || '',
+            body.fitPreference || '',
+            respondent.id,
+          ]
+        );
+      } else if (body.items && body.items.length > 0) {
         await query(
           `INSERT INTO survey_respondents (email, first_name, last_name, height, weight, build_type, chest_measurement, fit_preference)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
@@ -354,26 +427,55 @@ profilesRouter.post('/', async (req, res) => {
             body.fitPreference || 'standard',
           ]
         );
-        const newResp = await queryOne<any>(
+        respondent = await queryOne<any>(
           `SELECT id FROM survey_respondents WHERE email = $1`,
           [email]
         );
-        if (newResp) {
-          for (let i = 0; i < body.items.length; i++) {
-            const item = body.items[i];
-            if (item.brand && item.sizeLabel) {
-              const nb = normalizeBrand(item.brand);
+      }
+
+      if (respondent && body.items) {
+        // Determine the next slot number for new items
+        const maxSlotRow = await queryOne<any>(
+          `SELECT COALESCE(MAX(slot), 0) AS max_slot FROM survey_items WHERE respondent_id = $1`,
+          [respondent.id]
+        );
+        let nextSlot = (maxSlotRow?.max_slot ?? 0) + 1;
+
+        for (const item of body.items) {
+          if (item.brand && item.sizeLabel) {
+            const nb = normalizeBrand(item.brand);
+            const np = normalizeFit(nb, item.productName?.trim() || '');
+            const sizeLabel = item.sizeLabel.trim().toUpperCase();
+
+            const existingSurvey = await queryOne<any>(
+              `SELECT id FROM survey_items
+               WHERE respondent_id = $1
+                 AND LOWER(brand) = LOWER($2)
+                 AND LOWER(product_name) = LOWER($3)
+                 AND LOWER(size_label) = LOWER($4)`,
+              [respondent.id, nb, np, sizeLabel]
+            );
+
+            if (existingSurvey) {
+              if (item.fitRating) {
+                await query(
+                  `UPDATE survey_items SET fit_rating = $1 WHERE id = $2`,
+                  [item.fitRating, existingSurvey.id]
+                );
+              }
+            } else {
               await query(
                 `INSERT INTO survey_items (respondent_id, slot, brand, product_name, size_label, fit_rating)
                  VALUES ($1, $2, $3, $4, $5, $6)`,
-                [newResp.id, i + 1, nb, normalizeFit(nb, item.productName?.trim() || ''), item.sizeLabel.trim().toUpperCase(), item.fitRating || '']
+                [respondent.id, nextSlot++, nb, np, sizeLabel, item.fitRating || '']
               );
             }
           }
         }
       }
-    } catch (_) {
-      // Survey tables might not exist — that's OK
+    } catch (err) {
+      console.error('[profiles] survey mirror error:', err);
+      // Don't fail the request — survey table sync is secondary to the passport save
     }
 
     res.json({
@@ -400,6 +502,85 @@ profilesRouter.post('/', async (req, res) => {
   } catch (err: any) {
     console.error('[profiles]', err);
     res.status(500).json({ error: 'Failed to save profile' });
+  }
+});
+
+/**
+ * DELETE /profiles/items/:id — Remove a single stamp from the authenticated
+ * user's passport. Also removes the matching row from survey_items so the
+ * recommendation engine doesn't keep reading deleted data.
+ *
+ * Header: Authorization: Bearer <token>
+ */
+profilesRouter.delete('/items/:id', async (req, res) => {
+  try {
+    const itemId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(itemId)) {
+      return res.status(400).json({ error: 'Invalid item id' });
+    }
+
+    const user = await authedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    // Find the profile that belongs to this user. Prefer email match
+    // (more robust than auth_users.profile_id which can be stale or null
+    // if data was imported from elsewhere with a broken FK).
+    const ownerProfile = await queryOne<any>(
+      `SELECT id FROM shopper_profiles WHERE LOWER(email) = LOWER($1)`,
+      [user.email]
+    );
+    if (!ownerProfile) {
+      return res.status(404).json({ error: 'No profile for this user' });
+    }
+
+    // Look up the item, verify it belongs to this user's profile
+    const item = await queryOne<any>(
+      `SELECT * FROM profile_items WHERE id = $1`,
+      [itemId]
+    );
+    if (!item) {
+      return res.status(404).json({ error: 'Stamp not found' });
+    }
+    if (item.profile_id !== ownerProfile.id) {
+      return res.status(403).json({ error: 'Not your stamp' });
+    }
+
+    // Delete from profile_items
+    await query(`DELETE FROM profile_items WHERE id = $1`, [itemId]);
+
+    // Mirror the delete to survey_items so the engine forgets it too
+    try {
+      const profile = await queryOne<any>(
+        `SELECT email FROM shopper_profiles WHERE id = $1`,
+        [item.profile_id]
+      );
+      if (profile?.email) {
+        const respondent = await queryOne<any>(
+          `SELECT id FROM survey_respondents WHERE email = $1`,
+          [profile.email]
+        );
+        if (respondent) {
+          await query(
+            `DELETE FROM survey_items
+             WHERE respondent_id = $1
+               AND LOWER(brand) = LOWER($2)
+               AND LOWER(product_name) = LOWER($3)
+               AND LOWER(size_label) = LOWER($4)`,
+            [respondent.id, item.brand, item.product_name, item.size_label]
+          );
+        }
+      }
+    } catch (err) {
+      console.error('[profiles] survey delete mirror error:', err);
+      // Don't fail the request — primary delete already succeeded
+    }
+
+    res.json({ ok: true, deletedId: itemId });
+  } catch (err: any) {
+    console.error('[profiles/items DELETE]', err);
+    res.status(500).json({ error: 'Failed to delete stamp' });
   }
 });
 
