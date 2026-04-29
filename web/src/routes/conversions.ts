@@ -28,7 +28,7 @@ conversionsRouter.get('/', async (_req, res) => {
     const [followedCount] = await query<{ count: number }>(
       `SELECT COUNT(*) as count FROM events
        WHERE event_type = 'purchase_completed'
-         AND json_extract(payload, '$.followedRecommendation') = 1`
+         AND (payload::jsonb->>'followedRecommendation')::boolean IS TRUE`
     );
 
     // Returns
@@ -40,7 +40,7 @@ conversionsRouter.get('/', async (_req, res) => {
     const [returnWithRecCount] = await query<{ count: number }>(
       `SELECT COUNT(*) as count FROM events
        WHERE event_type = 'return_initiated'
-         AND json_extract(payload, '$.hadRecommendation') = 1`
+         AND (payload::jsonb->>'hadRecommendation')::boolean IS TRUE`
     );
 
     // --- Time series: daily event counts for the last 30 days ---
@@ -56,7 +56,7 @@ conversionsRouter.get('/', async (_req, res) => {
          'purchase_completed',
          'return_initiated'
        )
-       AND created_at > datetime('now', '-30 days')
+       AND created_at > NOW() - INTERVAL '30 days'
        GROUP BY date(created_at), event_type
        ORDER BY day ASC`
     );
@@ -85,7 +85,7 @@ conversionsRouter.get('/', async (_req, res) => {
     // --- Top reference brands chosen by shoppers ---
     const topBrands = await query<any>(
       `SELECT
-         json_extract(payload, '$.referenceItemId') as ref_id,
+         payload::jsonb->>'referenceItemId' as ref_id,
          COUNT(*) as count
        FROM events
        WHERE event_type = 'recommendation_shown'
@@ -97,11 +97,11 @@ conversionsRouter.get('/', async (_req, res) => {
     // --- Size distribution of recommendations ---
     const sizeDistribution = await query<any>(
       `SELECT
-         json_extract(payload, '$.recommendedSize') as size,
+         payload::jsonb->>'recommendedSize' as size,
          COUNT(*) as count
        FROM events
        WHERE event_type = 'recommendation_shown'
-         AND json_extract(payload, '$.recommendedSize') IS NOT NULL
+         AND payload::jsonb->>'recommendedSize' IS NOT NULL
        GROUP BY size
        ORDER BY count DESC`
     );
