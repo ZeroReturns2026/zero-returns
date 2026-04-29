@@ -572,6 +572,7 @@
       <p>Your sizing passport is saved. When you visit any store using Zero Returns, enter your email for instant personalized recommendations.</p>
       <div class="passport-id" id="successEmail"></div>
       <p style="margin-top:18px;font-size:12px;color:#aaa">Return anytime to update your stamps</p>
+      <button type="button" class="nav-btn primary" id="backToStampsBtn" style="margin-top:24px">Manage my stamps</button>
     </div>
   </div>
 </div>
@@ -685,6 +686,16 @@
     document.getElementById("fitPreference").value = "standard";
     successPage.style.display = "none"; form.style.display = "block";
     saveBtn.textContent = "Save Passport"; goToStep(1);
+  });
+  // "Manage my stamps" on the success page → return to the wardrobe step
+  // with all current stamps loaded so the user can add or remove items.
+  document.getElementById("backToStampsBtn").addEventListener("click", function() {
+    successPage.style.display = "none"; form.style.display = "block";
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Update Passport";
+    renderStamps();
+    goToStep(4);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   });
   document.getElementById("loginBtn").addEventListener("click", function() {
     var email = document.getElementById("loginEmail").value.trim();
@@ -805,6 +816,7 @@
     var email = document.getElementById("email").value.trim();
     if (!email) { showError("Email is required."); goToStep(1); return; }
     if (stamps.length === 0) { showError("Stamp at least one item into your passport."); return; }
+    var originalSaveBtnText = saveBtn.textContent;
     saveBtn.disabled = true; saveBtn.textContent = "Issuing Passport...";
     var headers = { "content-type": "application/json" };
     if (authToken) headers["Authorization"] = "Bearer " + authToken;
@@ -826,11 +838,19 @@
       .then(function(data) {
         form.style.display = "none"; successPage.style.display = "block";
         document.getElementById("successEmail").textContent = data.profile.email;
+        // Re-enable for any future update flow
+        saveBtn.disabled = false; saveBtn.textContent = originalSaveBtnText;
+        // Refresh stamps from server response so any new ids are captured
+        if (data.items) {
+          stamps = data.items.map(function(it) {
+            return { id: it.id, brand: it.brand, productName: it.productName, sizeLabel: it.sizeLabel, fitRating: it.fitRating || "" };
+          });
+        }
         window.scrollTo({ top: 0, behavior: "smooth" });
       })
       .catch(function(err) {
         showError("Failed: " + err.message);
-        saveBtn.disabled = false; saveBtn.textContent = "Save Passport";
+        saveBtn.disabled = false; saveBtn.textContent = originalSaveBtnText;
       });
   });
   document.getElementById("lookupBtn").addEventListener("click", function() {
