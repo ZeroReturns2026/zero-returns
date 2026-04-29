@@ -747,7 +747,11 @@
   function timeAgo(dateStr) {
     if (!dateStr) return '';
     const now = new Date();
-    const then = new Date(dateStr + 'Z');
+    // Parse as-is for ISO strings with timezone (Postgres TIMESTAMPTZ),
+    // fall back to appending 'Z' for legacy timezone-less strings (SQLite).
+    let then = new Date(dateStr);
+    if (isNaN(then.getTime())) then = new Date(dateStr + 'Z');
+    if (isNaN(then.getTime())) return '';
     const diffMs = now - then;
     const mins = Math.floor(diffMs / 60000);
     if (mins < 1) return 'Just now';
@@ -862,7 +866,9 @@ function profileCardHtml(p) {
   }
 
   const dateStr = p.updatedAt || p.createdAt || '';
-  const dateDisplay = dateStr ? new Date(dateStr + 'Z').toLocaleDateString() : '';
+  let parsedDate = dateStr ? new Date(dateStr) : null;
+  if (parsedDate && isNaN(parsedDate.getTime())) parsedDate = new Date(dateStr + 'Z');
+  const dateDisplay = parsedDate && !isNaN(parsedDate.getTime()) ? parsedDate.toLocaleDateString() : '';
 
   return '<div class="profile-card" data-search="' + escG((name + ' ' + p.email).toLowerCase()) + '">' +
     '<div class="profile-card-header">' +
