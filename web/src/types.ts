@@ -31,8 +31,11 @@ export interface ExternalReferenceItem {
   item_type: string; // 'tshirt', 'polo', 'button_down', 'oxford', etc.
   size_label: string;
   chest_inches: number;
-  shoulder_inches: number;
-  length_inches: number;
+  // shoulder/length can be NULL — many brands publish chest only.
+  // The recommendation engine handles null safely (skips that component).
+  shoulder_inches: number | null;
+  length_inches: number | null;
+  source?: string; // 'factory' | 'hand' (added in migration 007)
 }
 
 export interface FitProfile {

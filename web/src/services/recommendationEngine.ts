@@ -6,6 +6,16 @@ const CHEST_WEIGHT = 0.5;
 const SHOULDER_WEIGHT = 0.3;
 const LENGTH_WEIGHT = 0.2;
 
+/**
+ * Coerce a possibly-null/undefined/string-typed measurement to number|null.
+ * Pg returns NUMERIC columns as strings sometimes; null comes back as null.
+ */
+function numOrNull(v: number | string | null | undefined): number | null {
+  if (v === null || v === undefined) return null;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 const FIT_OFFSETS: Record<string, { chest: number; shoulder: number; length: number }> = {
   trim: { chest: -0.5, shoulder: -0.25, length: 0 },
   standard: { chest: 0, shoulder: 0, length: 0 },
@@ -144,60 +154,89 @@ function measurementMatch(input: RecommendInput) {
   const { productSizes, reference, fitPreference } = input;
   const offset = FIT_OFFSETS[fitPreference ?? 'standard'];
 
-  const adjustedChest = reference.chest_inches + offset.chest;
-  const adjustedShoulder = reference.shoulder_inches + offset.shoulder;
-  const adjustedLength = reference.length_inches + offset.length;
+  // Reference can have NULL shoulder/length (some brands only publish chest).
+  // We treat each component as "available or not" and only score components
+  // that are present on BOTH the reference and the candidate size, then
+  // renormalize the weights so chest-only references still produce a score
+  // on the same 0-1ish scale as fully-measured references.
+  const refChest    = numOrNull(reference.chest_inches);
+  const refShoulder = numOrNull(reference.shoulder_inches);
+  const refLength   = numOrNull(reference.length_inches);
+
+  const adjustedChest    = refChest    !== null ? refChest    + offset.chest    : null;
+  const adjustedShoulder = refShoulder !== null ? refShoulder + offset.shoulder : null;
+  const adjustedLength   = refLength   !== null ? refLength   + offset.length   : null;
 
   const scored = productSizes.map((size) => {
-    const chestDiff = Math.abs(size.chest_inches - adjustedChest);
-    const shoulderDiff = Math.abs(size.shoulder_inches - adjustedShoulder);
-    const lengthDiff = Math.abs(size.length_inches - adjustedLength);
-    const score =
-      chestDiff * CHEST_WEIGHT + shoulderDiff * SHOULDER_WEIGHT + lengthDiff * LENGTH_WEIGHT;
-    return { size: size.size_label, score, chestDiff, shoulderDiff, lengthDiff, sizeRow: size, fitGuard: undefined as string | undefined };
+    const sChest    = numOrNull(size.chest_inches);
+    const sShoulder = numOrNull(size.shoulder_inches);
+    const sLength   = numOrNull(size.length_inches);
+
+    let weightUsed = 0;
+    let weightedDiff = 0;
+    const chestDiff    = (adjustedChest    !== null && sChest    !== null) ? Math.abs(sChest    - adjustedChest)    : null;
+    const shoulderDiff = (adjustedShoulder !== null && sShoulder !== null) ? Math.abs(sShoulder - adjustedShoulder) : null;
+    const lengthDiff   = (adjustedLength   !== null && sLength   !== null) ? Math.abs(sLength   - adjustedLength)   : null;
+
+    if (chestDiff    !== null) { weightedDiff += chestDiff    * CHEST_WEIGHT;    weightUsed += CHEST_WEIGHT; }
+    if (shoulderDiff !== null) { weightedDiff += shoulderDiff * SHOULDER_WEIGHT; weightUsed += SHOULDER_WEIGHT; }
+    if (lengthDiff   !== null) { weightedDiff += lengthDiff   * LENGTH_WEIGHT;   weightUsed += LENGTH_WEIGHT; }
+
+    // Renormalize: a chest-only score and a full-measurement score should be
+    // comparable. weightUsed === 0 means we have no measurements at all to
+    // compare — bail with a huge score so this size loses any tie.
+    const score = weightUsed > 0 ? weightedDiff / weightUsed : Number.MAX_SAFE_INTEGER;
+
+    return {
+      size: size.size_label,
+      score,
+      chestDiff:    chestDiff    ?? 0,
+      shoulderDiff: shoulderDiff ?? 0,
+      lengthDiff:   lengthDiff   ?? 0,
+      sizeRow: size,
+      fitGuard: undefined as string | undefined,
+    };
   });
 
   scored.sort((a, b) => a.score - b.score);
 
-  // ── Directional guard for trim/relaxed preferences ──
-  // If the best size's chest is on the WRONG side of the original reference,
-  // the shopper could end up with a garment that's tighter (or looser) than
-  // even their reference — not just "slightly trimmer/roomier."
-  // In that case, bump to the next size in the correct direction.
-  if (fitPreference === 'trim' && scored.length >= 2) {
+  // ── Floor guard (default behavior, all fit preferences) ──
+  // "Too tight" is unrecoverable; "slightly big" is wearable. Never recommend
+  // a candidate whose chest is BELOW the adjusted reference chest. Among
+  // candidates that meet the floor, pick the SMALLEST one — that keeps us
+  // close to the user's actual size without pushing them into oversized.
+  // The fit-preference offset already encodes per-pref tolerance: trim
+  // floor = ref - 0.5", standard floor = ref, relaxed floor = ref + 0.75".
+  if (scored.length >= 2 && adjustedChest !== null) {
     const best = scored[0];
-    // The trim floor is the adjusted chest (reference - 0.5").
-    // The shopper wants up to 0.5" tighter — that's the wiggle room.
-    // But if the winning size's chest goes BELOW that adjusted target,
-    // it's tighter than they asked for.
-    const trimFloor = adjustedChest; // reference.chest_inches - 0.5
-    if (best.sizeRow.chest_inches < trimFloor) {
-      // Find the next size up whose chest is at or above the trim floor
-      const nextUp = scored.find(
-        s => s.sizeRow.chest_inches >= trimFloor && s !== best
-      );
-      if (nextUp) {
-        // Swap: promote the safer size to first position
-        const nextIdx = scored.indexOf(nextUp);
+    if (best.sizeRow.chest_inches < adjustedChest) {
+      // Best-by-distance is below the floor. Find the smallest size that
+      // meets or exceeds the floor.
+      const passing = scored
+        .filter((s) => s.sizeRow.chest_inches >= adjustedChest)
+        .sort((a, b) => a.sizeRow.chest_inches - b.sizeRow.chest_inches);
+      if (passing.length > 0) {
+        const next = passing[0];
+        const nextIdx = scored.indexOf(next);
         scored[nextIdx] = best;
-        scored[0] = nextUp;
-        scored[0].fitGuard = 'trim_floor';
+        scored[0] = next;
+        scored[0].fitGuard = 'floor_size_up';
       } else {
-        // No option at or above the trim floor — warn the shopper
-        best.fitGuard = 'trim_undersized';
+        // No size in the brand's run is large enough — flag for the UI.
+        best.fitGuard = 'undersized_collection';
       }
     }
   }
 
-  if (fitPreference === 'relaxed' && scored.length >= 2) {
+  if (fitPreference === 'relaxed' && scored.length >= 2 && refChest !== null) {
     const best = scored[0];
     // If the winning size's chest is LARGER than the relaxed-adjusted target
     // but also way bigger than original reference, it could be excessively roomy
-    if (best.sizeRow.chest_inches > reference.chest_inches + 2.0) {
+    if (best.sizeRow.chest_inches > refChest + 2.0) {
       // Find a size that's closer to the original but still roomier
       const nextDown = scored.find(
-        s => s.sizeRow.chest_inches <= reference.chest_inches + 2.0
-          && s.sizeRow.chest_inches > reference.chest_inches
+        s => s.sizeRow.chest_inches <= refChest + 2.0
+          && s.sizeRow.chest_inches > refChest
           && s !== best
       );
       if (nextDown) {

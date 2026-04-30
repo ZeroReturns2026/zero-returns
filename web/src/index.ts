@@ -11,6 +11,7 @@ import { webhookRouter } from './routes/webhooks';
 import { conversionsRouter } from './routes/conversions';
 import { profilesRouter } from './routes/profiles';
 import { authRouter } from './routes/auth';
+import { passportRecsRouter } from './routes/passportRecs';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -115,6 +116,7 @@ async function seedIfEmpty() {
   app.use('/api/conversions', conversionsRouter);
   app.use('/api/profiles', profilesRouter);
   app.use('/api/auth', authRouter);
+  app.use('/api/passport', passportRecsRouter);
 
   // Serve static assets (logos, etc.)
   app.use('/assets', express.static(path.resolve(__dirname)));

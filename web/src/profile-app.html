@@ -444,6 +444,226 @@
     letter-spacing: 1px;
     user-select: all;
   }
+  /* ── Find My Size (top-of-page search) ─────────────────────────── */
+  .find-size-bar {
+    max-width: 460px;
+    margin: 12px auto 0;
+    background: rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 14px;
+    display: none;
+  }
+  .find-size-bar.open { display: block; }
+  .find-size-bar h3 {
+    font-size: 12px;
+    font-weight: 600;
+    color: #d4c9a8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+  }
+  .find-size-bar .row { display: flex; gap: 8px; }
+  .find-size-bar input {
+    flex: 1;
+    padding: 12px 14px;
+    border: 1px solid #555;
+    border-radius: 8px;
+    background: #222;
+    color: #fff;
+    font-size: 15px;
+  }
+  .find-size-bar button {
+    padding: 12px 18px;
+    background: #d4c9a8;
+    color: #1e3328;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .find-size-bar button:disabled { opacity: 0.5; cursor: wait; }
+  .find-size-result {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: rgba(212,201,168,0.08);
+    border-radius: 8px;
+    color: #f5f0e0;
+    font-size: 14px;
+    display: none;
+  }
+  .find-size-result.show { display: block; }
+  .find-size-result .size-big {
+    font-size: 30px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+    margin: 4px 0 6px;
+  }
+  .find-size-result .conf-pill {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(212,201,168,0.2);
+    color: #d4c9a8;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .find-size-result .meta {
+    font-size: 12px;
+    color: rgba(212,201,168,0.7);
+    margin-top: 6px;
+    line-height: 1.4;
+  }
+  .find-size-error {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #ff8a8a;
+    display: none;
+  }
+  .find-size-error.show { display: block; }
+
+  /* ── Discover Brands (on success page — sits on cream parchment) ─── */
+  .discover-brands {
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(45,80,51,0.18);
+    text-align: left;
+  }
+  .discover-brands h3 {
+    font-size: 12px;
+    font-weight: 700;
+    color: #2d5033;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 6px;
+    text-align: left;
+  }
+  .discover-brands .sub {
+    font-size: 13px;
+    color: #6b6357;
+    margin-bottom: 14px;
+    text-align: left;
+    line-height: 1.4;
+  }
+  .discover-brand-card {
+    background: #fff;
+    border: 1px solid rgba(45,80,51,0.15);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .discover-brand-card .brand-name {
+    font-weight: 700;
+    color: #2d5033;
+    font-size: 15px;
+    line-height: 1.2;
+  }
+  .discover-brand-card .fit-chip {
+    display: inline-block;
+    margin-top: 5px;
+    padding: 2px 8px;
+    background: #f1ead8;
+    border: 1px solid rgba(45,80,51,0.18);
+    border-radius: 999px;
+    color: #2d5033;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .discover-brand-card .size-conf { text-align: right; padding-left: 10px; }
+  .discover-brand-card .size {
+    font-size: 22px;
+    font-weight: 700;
+    color: #2d5033;
+    line-height: 1;
+  }
+  .discover-brand-card .conf {
+    font-size: 11px;
+    color: #8a7f6b;
+    margin-top: 3px;
+  }
+  .discover-brand-card .size-shift {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    line-height: 1.4;
+  }
+  .discover-brand-card .size-shift.runs-small {
+    background: #fce8d8;
+    color: #8c4a1a;
+    border: 1px solid #e8b890;
+  }
+  .discover-brand-card .size-shift.runs-large {
+    background: #dcebd9;
+    color: #2d5033;
+    border: 1px solid #94b88c;
+  }
+  .discover-brands .typical-note {
+    font-size: 12px;
+    color: #8a7f6b;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(45,80,51,0.18);
+    line-height: 1.4;
+  }
+  .discover-brands .empty {
+    font-size: 13px;
+    color: #8a7f6b;
+    font-style: italic;
+  }
+
+  /* ── Find My Size results — fit-by-fit list ─────────────────────── */
+  .find-size-result .fs-brand {
+    font-size: 12px;
+    color: rgba(245,240,224,0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  .find-size-result .fs-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-top: 1px solid rgba(212,201,168,0.18);
+  }
+  .find-size-result .fs-row:first-of-type { border-top: none; }
+  .find-size-result .fs-row .fs-fit {
+    font-size: 13px;
+    color: #f5f0e0;
+    font-weight: 500;
+    flex: 1;
+    margin-right: 12px;
+    line-height: 1.3;
+  }
+  .find-size-result .fs-row .fs-size-conf { text-align: right; white-space: nowrap; }
+  .find-size-result .fs-row .fs-size {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+  }
+  .find-size-result .fs-row .fs-conf {
+    font-size: 10px;
+    color: rgba(212,201,168,0.7);
+    margin-top: 2px;
+  }
+  .find-size-result .fs-based-on {
+    font-size: 12px;
+    color: rgba(212,201,168,0.7);
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(212,201,168,0.18);
+  }
 </style>
 </head>
 <body>
@@ -475,6 +695,15 @@
   <input type="email" id="lookupEmail" placeholder="Email used on your passport" autocomplete="email">
   <button id="lookupBtn">Find My Passport</button>
   <div class="err" id="lookupError"></div>
+</div>
+<div class="find-size-bar" id="findSizeBar">
+  <h3>Find my size in another brand</h3>
+  <div class="row">
+    <input type="text" id="findSizeBrand" placeholder="e.g. Greyson, Lululemon, Bonobos" autocomplete="off">
+    <button type="button" id="findSizeBtn">Find</button>
+  </div>
+  <div class="find-size-result" id="findSizeResult"></div>
+  <div class="find-size-error" id="findSizeError"></div>
 </div>
 <div class="passport">
   <div class="passport-inner">
@@ -573,6 +802,11 @@
       <div class="passport-id" id="successEmail"></div>
       <p style="margin-top:18px;font-size:12px;color:#aaa">Return anytime to update your stamps</p>
       <button type="button" class="nav-btn primary" id="backToStampsBtn" style="margin-top:24px">Manage my stamps</button>
+      <div class="discover-brands" id="discoverBrands" style="display:none">
+        <h3>Brands you'll likely fit</h3>
+        <div class="sub" id="discoverBrandsSub">Based on your stamps — brands you don't own yet:</div>
+        <div id="discoverBrandsList"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -656,12 +890,14 @@
     topBar.style.display = "none"; loggedInBar.style.display = "flex";
     document.getElementById("loggedInEmail").textContent = email;
     closeAllPanels();
+    setFindSizeVisibility();
   }
   function setLoggedOut() {
     authToken = null; localStorage.removeItem("zrToken");
     loggedInEmail = null;
     topBar.style.display = "flex"; loggedInBar.style.display = "none";
     closeAllPanels();
+    setFindSizeVisibility();
   }
   function ownsLoadedPassport() {
     return !!(loggedInEmail && loadedProfileEmail && loggedInEmail === loadedProfileEmail);
@@ -846,6 +1082,11 @@
             return { id: it.id, brand: it.brand, productName: it.productName, sizeLabel: it.sizeLabel, fitRating: it.fitRating || "" };
           });
         }
+        // The user has now saved a passport — Find My Size becomes available,
+        // and we kick off the Discover Brands fetch in the background.
+        loadedProfileEmail = (data.profile.email || "").toLowerCase();
+        setFindSizeVisibility();
+        loadDiscoverBrands(loadedProfileEmail);
         window.scrollTo({ top: 0, behavior: "smooth" });
       })
       .catch(function(err) {
@@ -913,8 +1154,160 @@
       }
     }
     renderStamps(); goToStep(1);
+    // Profile loaded → Find My Size is now usable.
+    setFindSizeVisibility();
   }
   function esc(s) { return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+  // ──────────────────────────────────────────────────────────────────
+  // Find My Size — search bar at top of page
+  // ──────────────────────────────────────────────────────────────────
+  function getFindSizeContextEmail() {
+    if (loadedProfileEmail) return loadedProfileEmail;
+    if (loggedInEmail) return loggedInEmail;
+    var typed = (document.getElementById("email").value || "").trim().toLowerCase();
+    return typed || null;
+  }
+  function setFindSizeVisibility() {
+    var bar = document.getElementById("findSizeBar");
+    if (!bar) return;
+    if (getFindSizeContextEmail()) bar.classList.add("open");
+    else bar.classList.remove("open");
+  }
+  // Recompute visibility whenever the user types an email on step 1
+  var emailField = document.getElementById("email");
+  if (emailField) emailField.addEventListener("blur", setFindSizeVisibility);
+
+  document.getElementById("findSizeBtn").addEventListener("click", function() {
+    var brand = document.getElementById("findSizeBrand").value.trim();
+    var email = getFindSizeContextEmail();
+    var resultEl = document.getElementById("findSizeResult");
+    var errEl = document.getElementById("findSizeError");
+    resultEl.classList.remove("show"); errEl.classList.remove("show");
+    if (!brand) { errEl.textContent = "Type a brand name to search."; errEl.classList.add("show"); return; }
+    if (!email) { errEl.textContent = "Save your passport (or look it up by email) first."; errEl.classList.add("show"); return; }
+
+    var btn = this; var orig = btn.textContent;
+    btn.disabled = true; btn.textContent = "...";
+
+    fetch(API + "/api/passport/find-size", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: email, targetBrand: brand })
+    })
+      .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, status: r.status, data: j }; }); })
+      .then(function(res) {
+        btn.disabled = false; btn.textContent = orig;
+        if (!res.ok) {
+          errEl.textContent = (res.data && res.data.error) ? res.data.error : "Could not compute a size.";
+          errEl.classList.add("show");
+          return;
+        }
+        var d = res.data;
+        var opts = (d && d.options) ? d.options : [];
+        if (opts.length === 0) {
+          errEl.textContent = "No fit options found for that brand yet.";
+          errEl.classList.add("show");
+          return;
+        }
+        // Header + per-fit rows (sorted by confidence by the API).
+        var html = '<div class="fs-brand">' + esc(d.brand) + '</div>';
+        for (var i = 0; i < opts.length; i++) {
+          var o = opts[i];
+          html +=
+            '<div class="fs-row">' +
+              '<div class="fs-fit">' + esc(o.product || "") + '</div>' +
+              '<div class="fs-size-conf">' +
+                '<div class="fs-size">' + esc(o.recommendedSize) + '</div>' +
+                '<div class="fs-conf">' + Math.round(o.confidence) + '%</div>' +
+              '</div>' +
+            '</div>';
+        }
+        // "Based on" attribution at the bottom
+        if (d.basedOn) {
+          var basedOnLine = "Based on your " + esc(d.basedOn.brand) + " " + esc(d.basedOn.size || "");
+          if (d.basedOn.product) basedOnLine += " (" + esc(d.basedOn.product) + ")";
+          basedOnLine += " stamp";
+          html += '<div class="fs-based-on">' + basedOnLine + '</div>';
+        }
+        resultEl.innerHTML = html;
+        resultEl.classList.add("show");
+      })
+      .catch(function(err) {
+        btn.disabled = false; btn.textContent = orig;
+        errEl.textContent = "Network error: " + (err.message || err);
+        errEl.classList.add("show");
+      });
+  });
+
+  // Submit on Enter inside the brand input
+  document.getElementById("findSizeBrand").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") { e.preventDefault(); document.getElementById("findSizeBtn").click(); }
+  });
+
+  // ──────────────────────────────────────────────────────────────────
+  // Discover Brands — populates after passport save
+  // ──────────────────────────────────────────────────────────────────
+  function loadDiscoverBrands(email) {
+    var box = document.getElementById("discoverBrands");
+    var list = document.getElementById("discoverBrandsList");
+    if (!box || !list) return;
+    if (!email) { box.style.display = "none"; return; }
+    box.style.display = "block";
+    list.innerHTML = '<div class="empty">Loading…</div>';
+
+    fetch(API + "/api/passport/brand-recs?email=" + encodeURIComponent(email))
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var recs = (d && d.recommendations) ? d.recommendations : [];
+        if (recs.length === 0) {
+          list.innerHTML = '<div class="empty">' + esc(d.note || "No new brand suggestions yet — add a few more stamps and check back.") + '</div>';
+          return;
+        }
+        var html = "";
+        var typical = d.typicalSize || "";
+        var anyShift = false;
+        for (var i = 0; i < recs.length; i++) {
+          var r = recs[i];
+          // sizeShift: 'up' means rec is BIGGER than user's typical → brand runs small
+          //            'down' means rec is SMALLER than user's typical → brand runs large
+          var shiftBadge = "";
+          if (r.sizeShift === "up") {
+            shiftBadge = '<div class="size-shift runs-small">Runs small</div>';
+            anyShift = true;
+          } else if (r.sizeShift === "down") {
+            shiftBadge = '<div class="size-shift runs-large">Runs large</div>';
+            anyShift = true;
+          }
+          html +=
+            '<div class="discover-brand-card">' +
+              '<div>' +
+                '<div class="brand-name">' + esc(r.brand) + '</div>' +
+                (r.product ? '<div class="fit-chip">' + esc(r.product) + '</div>' : '') +
+              '</div>' +
+              '<div class="size-conf">' +
+                '<div class="size">' + esc(r.recommendedSize) + '</div>' +
+                '<div class="conf">' + Math.round(r.confidence) + '% conf</div>' +
+                shiftBadge +
+              '</div>' +
+            '</div>';
+        }
+        // Optional footer when there's a size shift in the list — reinforces
+        // the "not all mediums are the same" insight.
+        if (anyShift && typical) {
+          html += '<div class="typical-note">Heads up: your usual is <strong>' + esc(typical) +
+            '</strong>, but a couple of these brands are sized differently. That’s why we exist.</div>';
+        }
+        list.innerHTML = html;
+      })
+      .catch(function() {
+        list.innerHTML = '<div class="empty">Couldn’t load brand suggestions. Try refreshing.</div>';
+      });
+  }
+
+  // If the user lands on the page already logged in (auth/me succeeded),
+  // make sure Find My Size shows as soon as the profile is hydrated.
+  setFindSizeVisibility();
 })();
 </script>
 </body>

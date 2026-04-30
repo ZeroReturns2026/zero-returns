@@ -396,6 +396,128 @@ Both `app_proxy` and `sizing-widget` extensions show "Unavailable. Run dev to ge
 
 If a user is logged in as user A but uses "Find my passport" to look up user B's profile, the X buttons appear on B's stamps even though deleting them is server-side blocked (403). The auth guard works correctly — this is just a polish issue. Small fix: hide the X button when `loadedProfileEmail !== loggedInEmail`. Tracked but not yet shipped.
 
+## In-flight: Factory Measurements sync system
+
+**Status as of Apr 29, 2026 (built locally — needs `npm run migrate` + `npm run factory:sync` + commit):**
+
+Factory measurements (manufacturer size charts) are currently **hardcoded** in `web/scripts/seed.ts` as a `REFERENCE_ITEMS` array. Adding a brand requires editing TypeScript and redeploying. Decision: replace this with a Google Sheets → published-CSV → `npm run factory:sync` pipeline, matching the pattern already used for survey data (`ZERO_RETURNS_CSV_URL`).
+
+**Done:**
+- Merged Mike's two source files (`garment_comparison.xlsx` + `golf_polo_factory_sizing_v3.xlsx`) into a single workbook: `zero-returns-sizing-master.xlsx`. Six sheets:
+  1. README — overview + edit instructions
+  2. **Factory Measurements** (92 rows) — `brand`, `polo_line`, `fit`, `tagged_size`, `chest_inches`, `shoulder_inches`, `length_inches`, `source`, `confidence`, `notes`. **This is the sheet the sync script will consume.**
+  3. Hand Measurements (48 rows) — Mike's personal garment measurements; 30 with factory matches, 18 without (`Has Factory Spec` flags which)
+  4. Brand Fit Notes — research findings + action items for unverified estimates
+  5. Size Run Pivot — quick-reference P2P at each size per brand × line × fit
+  6. Delta Summary — stats on hand vs factory deltas
+- File uploaded to Mike's `zeroreturns2026` Google Drive and converted to a native Google Sheet: https://docs.google.com/spreadsheets/d/1QucmguNhUWmcR9NrdQaH5_9p6oI6gh63vNClT6dvoNQ
+
+**Published CSV URL** (for reference; already wired into `web/.env`):
+`https://docs.google.com/spreadsheets/d/e/2PACX-1vTDEk0FXoY-nmk35BbZs-AdYk6Q41EuXLDhcPGya99aq7tzm-7RJGIwMd7HRehX4RQDHyfwMwATcGQS/pub?gid=1028245359&single=true&output=csv`
+
+**Built (local-only — not yet committed):**
+- `web/migrations/006_nullable_reference_measurements.sql` — drops NOT NULL on `shoulder_inches` and `length_inches` so partial-spec rows can be ingested. Idempotent.
+- `web/migrations/007_reference_source_column.sql` — adds `source TEXT NOT NULL DEFAULT 'factory'` to `external_reference_items` so factory vs hand measurements can be distinguished.
+- `web/scripts/sync-references.ts` — fetches the published CSVs for **both** the Factory Measurements and Hand Measurements sheets, parses each, full-replaces `external_reference_items` inside one transaction. Tags rows with `source='factory'` or `source='hand'`. Builds product names as `"<Line/Model> (<Fit>)"`. Note rows in the hand sheet (analytical paragraphs) are detected and filtered silently. Hand sync is optional — runs only if `HAND_MEASUREMENTS_CSV_URL` is set.
+- `web/.env` — `FACTORY_MEASUREMENTS_CSV_URL` set; `HAND_MEASUREMENTS_CSV_URL` blank (Mike to fill in after publishing the Hand Measurements tab).
+- `web/.env.example` — both template entries added.
+- `web/package.json` — registered `"references:sync": "tsx --no-warnings scripts/sync-references.ts"`.
+
+**Dry-run against the local copy of the workbook:**
+- Factory: 92 accepted (10 full + 82 chest-only), 0 skipped.
+- Hand: 36 accepted (36 full + 0 chest-only), 12 note rows filtered silently, 0 unusable.
+- Combined: **128 reference rows** ready to sync.
+
+**Next steps for Mike (run from `~/Documents/Claude/Projects/Zero Returns/web`):**
+
+1. **Publish the Hand Measurements tab as CSV** (mirror what you did for Factory Measurements):
+   - In the Google Sheet → File → Share → Publish to web
+   - First dropdown: **"Hand Measurements"**
+   - Second dropdown: **Comma-separated values (.csv)**
+   - Click **Publish**, copy the URL (will end in `output=csv`)
+2. Paste that URL into `web/.env` as `HAND_MEASUREMENTS_CSV_URL=...` (line is already there, just blank).
+3. `npm run migrate` — applies migrations 006 + 007 to the local DB.
+4. `npm run references:sync` — pulls both CSVs, replaces `external_reference_items` with ~128 rows. Confirm output ends with `✓ Sync complete. external_reference_items now contains 128 rows. factory: 92, hand: 36.`
+5. Verify: `psql zero_returns -c "SELECT source, COUNT(*) FROM external_reference_items GROUP BY source;"` — should show factory=92, hand=36.
+6. **Add the env vars to Railway** so production can sync too:
+   - Railway dashboard → `genuine-courage` project → `hey-tailor-web` service → **Variables** tab
+   - Add `FACTORY_MEASUREMENTS_CSV_URL=<factory URL>`
+   - Add `HAND_MEASUREMENTS_CSV_URL=<hand URL>`
+   - Save (Railway redeploys automatically)
+7. Commit + push:
+   ```bash
+   cd ~/Documents/Claude/Projects/Zero\ Returns
+   git add web/migrations/006_nullable_reference_measurements.sql \
+           web/migrations/007_reference_source_column.sql \
+           web/scripts/sync-references.ts \
+           web/.env.example web/package.json HANDOFF.md
+   git commit -m "Reference measurements sync: factory + hand sources, full-replace pipeline"
+   git push
+   ```
+   (Skip `web/.env` — it's gitignored.)
+8. After Railway redeploys, run the sync against production once. Easiest method: same trick as the survey backfill — temporarily point local `web/.env`'s `DATABASE_URL` at `DATABASE_PUBLIC_URL`, run `npm run references:sync`, reset `.env`. (Or open a Railway shell and run it there.)
+
+**(Later) Schedule it.** Once the manual flow feels right, add a Railway cron task to run `npm run references:sync` hourly.
+
+**Why this was paused before:** Find My Size + Brand Recs depend on this data; building features on a hardcoded seed array was wasteful. Foundation first, features second.
+
+## Find My Size + Discover Brands (consumer-facing features)
+
+**Built same session as the sync pipeline. End-to-end now:**
+
+### Backend
+- **`web/src/routes/passportRecs.ts`** — already had `POST /api/passport/find-size` and `GET /api/passport/brand-recs`. **Now mounted in `index.ts`** at `app.use('/api/passport', passportRecsRouter)`. Endpoints are reachable.
+- **`getUserReference()` rewritten with three-tier matching** so a user's stamp ("Nike, Dri-FIT Standard, M") still finds its reference row even though our stored canonical name is "Nike, Dri-FIT Standard (Slim), M":
+  1. Exact: brand + product_name + size
+  2. Loose: brand + size + product_name overlap (LIKE either direction). Factory rows preferred over hand rows.
+  3. Fallback: brand + size only, factory preferred
+- **Stamps with `fit_rating='perfect'` are preferred** as the reference (over older stamps), so recommendations are based on what actually fits the user well.
+- **Engine NULL handling fixed.** `measurementMatch()` previously read `reference.shoulder_inches + offset.shoulder` directly — when shoulder was NULL, JS coerced `null + 0.25 → 0.25` and produced ~18-inch artificial penalties. Now each component (chest/shoulder/length) only contributes if both reference and candidate have a number; remaining weights are renormalized so a chest-only score is comparable to a full-measurement score (both expressed in average inches of difference, so the existing `scoreToConfidence` thresholds carry over).
+- **`ExternalReferenceItem` type updated** in `web/src/types.ts` — `shoulder_inches` and `length_inches` are now `number | null`.
+- The directional fit guards (trim floor, relaxed ceiling) gated on `refChest !== null` for safety.
+
+### Frontend (`web/src/profile-app.html`)
+- **Find My Size search bar** above the passport: `Find my size in another brand` heading + brand input + Find button. Visible whenever there's a context email (logged in, profile loaded via lookup, or a saved passport). Renders the recommended size big, confidence pill, fit note, and "Based on your <brand> <size> stamp" attribution. Submit on Enter.
+- **Discover Brands section** appended to the success page (shown after the user saves a passport). Calls `GET /api/passport/brand-recs` and renders the top 5 brands the user doesn't own, each with recommended size + confidence + product. Empty state explains why nothing is there yet (e.g. "add a stamp for a brand we cover").
+- **`setFindSizeVisibility()`** toggled from: `setLoggedIn`, `setLoggedOut`, save success, profile lookup (`fillForm`), and email-field blur.
+- Styling matches the existing dark/parchment theme (`#d4c9a8` accents on `#1e3328` background).
+
+### Files changed in this round
+- `web/src/index.ts` — imported and mounted `passportRecsRouter`
+- `web/src/routes/passportRecs.ts` — three-tier reference matching, perfect-fit preference, "based on" exposes the user's actual stamp text
+- `web/src/services/recommendationEngine.ts` — NULL-safe measurement scoring with renormalized weights
+- `web/src/types.ts` — nullable shoulder/length on `ExternalReferenceItem`
+- `web/src/profile-app.html` — CSS, HTML, and JS for both feature surfaces
+
+### What still needs to happen for Mike to see it work
+1. `npm run migrate` (applies 006 + 007).
+2. `npm run references:sync` (loads 128 rows from the two sheets).
+3. `npm run dev` and open `http://localhost:3000/profile`.
+4. Sanity test: log in / look up a profile that has stamps for one of the brands in the sheet (e.g. Peter Millar, Nike, Lululemon, Polo Ralph Lauren), then search for a different brand on the spreadsheet. Should get a size + confidence + "based on" line.
+5. After saving a passport, the success page should auto-show 3-5 Discover Brands cards.
+6. Commit everything (full file list in the next section).
+
+### Known follow-ups (not blocking)
+- Brand recs currently ranks purely by engine confidence ≥ 70%. With factory + hand combined giving good catalog coverage, that's fine. If too many brands qualify, consider also weighting by survey-vote count or limiting to brands with at least N sizes.
+- Cross-user X-button confusion (existing minor UX issue) is unchanged.
+- Schedule the references sync on Railway so production stays auto-fresh.
+
+### Full git add for this round
+```bash
+git add \
+  web/migrations/006_nullable_reference_measurements.sql \
+  web/migrations/007_reference_source_column.sql \
+  web/scripts/sync-references.ts \
+  web/src/index.ts \
+  web/src/routes/passportRecs.ts \
+  web/src/services/recommendationEngine.ts \
+  web/src/types.ts \
+  web/src/profile-app.html \
+  web/.env.example \
+  web/package.json \
+  HANDOFF.md
+```
+
 ## Open questions to resolve
 
 1. **Widget → Passport handshake.** When a shopper visits a brand's product page, does the widget auto-pull their passport (by email or persistent identifier) and use those stamps as the reference for the recommendation? Or does it ask the shopper to manually enter a brand+size each time? Worth auditing `web/src/routes/recommend.ts`, `web/src/routes/proxy.ts`, and `widget/src/Widget.tsx` to confirm the full data path.
