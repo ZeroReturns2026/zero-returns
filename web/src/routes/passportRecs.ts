@@ -200,18 +200,23 @@ passportRecsRouter.post('/find-size', async (req, res) => {
 
     const normBrand = normalizeBrand(targetBrand);
 
-    // Get all external_reference_items rows for the target brand, grouped by product.
+    // Candidate products come from FACTORY rows only. Hand-measured rows are
+    // useful as brand-presence signals and to inform the user's collection
+    // range, but they're single-garment measurements and shouldn't be treated
+    // as authoritative product specs. If a brand has only hand data, we don't
+    // recommend a size for it yet (would require explicit "estimated" UX).
     const targetRows = await query<ExternalReferenceItem>(
       `SELECT * FROM external_reference_items
        WHERE LOWER(brand) = LOWER($1)
+         AND source = 'factory'
        ORDER BY product_name ASC, size_label ASC`,
       [normBrand]
     );
 
     if (targetRows.length === 0) {
       return res.status(404).json({
-        error: `We don't have measurements for ${normBrand} yet.`,
-        suggestion: 'Try a different brand, or add a stamp for one of the brands we cover.',
+        error: `We don't have published size charts for ${normBrand} yet.`,
+        suggestion: 'Try a brand whose factory measurements are in the spreadsheet.',
       });
     }
 
@@ -233,12 +238,58 @@ passportRecsRouter.post('/find-size', async (req, res) => {
 
     const fitPref = (userData.profile.fit_preference || 'standard') as 'trim' | 'standard' | 'relaxed';
 
+    // ── Stamp-override ───────────────────────────────────────────────
+    // For brands the user owns, their passport stamps are authoritative.
+    // We pre-compute their size distribution at this brand (excluding any
+    // stamps they've marked too_tight or too_loose — those are explicitly
+    // not "wearable" feedback). For each candidate product, if any of the
+    // user's stamp sizes are available in that product's size run, we
+    // override the engine and recommend the most-stamped size at 97%
+    // confidence. The engine only runs for products where the user has
+    // never stamped a size that's in the run.
+    const stampsAtBrand = userData.stamps.filter((s) => {
+      const stampBrandNorm = normalizeBrand(s.brand || '').toLowerCase();
+      const fr = (s.fit_rating || '').toLowerCase();
+      return stampBrandNorm === normBrand.toLowerCase()
+          && fr !== 'too_tight'
+          && fr !== 'too_loose';
+    });
+
+    const stampSizeCounts: Record<string, number> = {};
+    for (const s of stampsAtBrand) {
+      const sz = (s.size_label || '').toUpperCase().trim();
+      if (sz) stampSizeCounts[sz] = (stampSizeCounts[sz] || 0) + 1;
+    }
+
+    function pickStampSize(productSizes: ExternalReferenceItem[]): string | null {
+      const available = new Set(productSizes.map((r) => (r.size_label || '').toUpperCase().trim()));
+      const candidates = Object.entries(stampSizeCounts)
+        .filter(([sz]) => available.has(sz))
+        .sort((a, b) => b[1] - a[1]); // most-stamped first
+      return candidates.length > 0 ? candidates[0][0] : null;
+    }
+
     const options: any[] = [];
     for (const [productName, sizes] of Object.entries(productGroups)) {
+      const overrideSize = pickStampSize(sizes);
+      if (overrideSize) {
+        // User owns this brand at a size that's available here → trust the
+        // wardrobe, skip the engine.
+        const stampCount = stampSizeCounts[overrideSize];
+        options.push({
+          product: productName,
+          recommendedSize: overrideSize,
+          confidence: 97,
+          fitNote: stampCount > 1
+            ? `You own ${stampCount} ${normBrand} ${overrideSize} pieces and like them — same here.`
+            : `Based on your ${normBrand} ${overrideSize} stamp.`,
+          source: 'wardrobe',
+        });
+        continue;
+      }
+      // No matching stamp — fall back to engine math.
       const result = await recommendSize(
         {
-          // ExternalReferenceItem has the same chest/shoulder/length/size_label
-          // fields the engine reads, so we can pass it as productSizes.
           productSizes: sizes as any,
           reference: userData.reference,
           fitPreference: fitPref,
@@ -296,9 +347,13 @@ passportRecsRouter.get('/brand-recs', async (req, res) => {
       });
     }
 
-    // All distinct brands in factory measurements.
+    // Recommend only brands that have factory data. Hand-only brands lack a
+    // reliable size chart to compare against, so we skip them rather than
+    // showing low-confidence recommendations.
     const allBrands = await query<{ brand: string }>(
-      `SELECT DISTINCT brand FROM external_reference_items ORDER BY brand`
+      `SELECT DISTINCT brand FROM external_reference_items
+       WHERE source = 'factory'
+       ORDER BY brand`
     );
 
     // Brands the user already owns (so we skip them in recs).
@@ -317,10 +372,11 @@ passportRecsRouter.get('/brand-recs', async (req, res) => {
       const normBrand = normalizeBrand(brand);
       if (ownedBrands.has(normBrand.toLowerCase())) continue;
 
-      // Get this brand's products. Run engine per product, pick highest confidence.
+      // Get this brand's factory products only. Run engine per product, pick highest confidence.
       const rows = await query<ExternalReferenceItem>(
         `SELECT * FROM external_reference_items
          WHERE LOWER(brand) = LOWER($1)
+           AND source = 'factory'
          ORDER BY product_name ASC, size_label ASC`,
         [normBrand]
       );

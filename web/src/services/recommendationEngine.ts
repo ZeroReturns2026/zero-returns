@@ -297,30 +297,53 @@ export async function recommendSize(
   let fitNote: string;
   let source: string;
 
+  // ── Blend: crowd-first ────────────────────────────────────────────
+  // Design principle: real-world fit experience ("people who wear X also
+  // wear Y") is a stronger signal than measurement math. Measurements are
+  // a directional guide. So whenever the collaborative layer has any
+  // meaningful consensus, it wins. The thresholds here are deliberately
+  // generous toward the crowd: a single confident vote can override
+  // measurements (with a small confidence haircut), and 2+ votes become
+  // authoritative.
   if (collab && collab.totalVotes >= 2) {
-    // Collaborative data is strong enough to use
     if (collab.size === best.size.toUpperCase()) {
       // Both agree — highest confidence
       recommendedSize = best.size;
       confidence = Math.min(97, Math.max(collab.confidence, scoreToConfidence(best.score)) + 5);
       fitNote = `Size ${best.size} is confirmed by both our measurement analysis and ${collab.count} shopper(s) with similar preferences.`;
       source = 'collaborative+measurement';
-    } else if (collab.confidence >= 80 && collab.totalVotes >= 3) {
-      // Collaborative data is strong and disagrees — trust the crowd
+    } else if (collab.confidence >= 70 && collab.totalVotes >= 2) {
+      // Crowd has any reasonable consensus and disagrees — trust the crowd.
+      // Lowered from ≥80% / ≥3 votes so the flywheel can dominate sooner.
       recommendedSize = collab.size;
       confidence = collab.confidence;
-      fitNote = `Based on ${collab.count} shopper(s) who also wear ${reference.brand} ${reference.size_label}, size ${collab.size} is the best fit. Our measurement analysis suggests ${best.size}, but real-world preferences point to ${collab.size}.`;
+      fitNote = `Based on ${collab.count} shopper(s) who also wear ${reference.brand} ${reference.size_label}, size ${collab.size} is the best fit. Measurements suggest ${best.size}, but real-world fit experience points to ${collab.size}.`;
       source = 'collaborative';
     } else {
-      // Weak disagreement — go with measurements but note the collaborative signal
+      // Weak crowd disagreement — go with measurements but flag the alternative.
       recommendedSize = best.size;
       confidence = scoreToConfidence(best.score);
       fitNote = buildFitNote(best, reference, fitPreference) +
         ` (Note: some shoppers with similar preferences wear ${collab.size}.)`;
       source = 'measurement+collab-note';
     }
+  } else if (collab && collab.totalVotes >= 1) {
+    // A single crowd vote — used to be ignored. Now: if it agrees with
+    // measurements, treat as confirmation. If it disagrees, lean toward
+    // crowd at moderate confidence.
+    if (collab.size === best.size.toUpperCase()) {
+      recommendedSize = best.size;
+      confidence = Math.min(92, scoreToConfidence(best.score) + 3);
+      fitNote = `Size ${best.size} matches both measurements and ${collab.count} similar shopper.`;
+      source = 'collaborative+measurement';
+    } else {
+      recommendedSize = collab.size;
+      confidence = 70; // moderate — only one data point
+      fitNote = `One shopper with similar preferences wears ${collab.size} here. Measurements suggest ${best.size}, but real-world experience tilts us toward ${collab.size}.`;
+      source = 'collaborative';
+    }
   } else {
-    // No collaborative data — pure measurement matching
+    // No crowd data at all — fall back to measurement-only.
     recommendedSize = best.size;
     confidence = scoreToConfidence(best.score);
     fitNote = buildFitNote(best, reference, fitPreference);
