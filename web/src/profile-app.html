@@ -444,6 +444,38 @@
     letter-spacing: 1px;
     user-select: all;
   }
+  /* ── Coming Soon — gates Find My Size + Brands You'll Likely Fit ─── */
+  .find-size-bar.coming-soon,
+  .discover-brands.coming-soon {
+    display: block;
+    max-width: 460px;
+    margin: 12px auto 0;
+    background: rgba(255,255,255,0.04);
+    border: 1px dashed rgba(212,201,168,0.35);
+    border-radius: 10px;
+    padding: 16px 18px;
+    text-align: center;
+  }
+  .discover-brands.coming-soon { margin-top: 24px; }
+  .coming-soon-badge {
+    display: inline-block;
+    background: rgba(212,201,168,0.15);
+    color: #d4c9a8;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin: 6px 0 10px;
+  }
+  .coming-soon-sub,
+  .discover-brands.coming-soon .sub {
+    font-size: 13px;
+    color: #b0a98e;
+    line-height: 1.5;
+    margin: 0;
+  }
   /* ── Find My Size (top-of-page search) ─────────────────────────── */
   .find-size-bar {
     max-width: 460px;
@@ -696,6 +728,15 @@
   <button id="lookupBtn">Find My Passport</button>
   <div class="err" id="lookupError"></div>
 </div>
+<!-- Find My Size — gated as Coming Soon. Backend (passportRecs.ts, recommendationEngine.ts) is intact;
+     this UI is hidden until the passport graph is dense enough for trustworthy recommendations.
+     To re-enable: remove the .coming-soon block below and uncomment the original .find-size-bar markup. -->
+<div class="find-size-bar coming-soon" id="findSizeBar" aria-hidden="false">
+  <h3>Find my size in another brand</h3>
+  <div class="coming-soon-badge">Coming soon</div>
+  <p class="coming-soon-sub">We're building this with real shoppers — every passport stamp makes the recommendations more accurate. Add your wardrobe below to help us launch this faster.</p>
+</div>
+<!-- Original interactive markup, preserved for re-enablement:
 <div class="find-size-bar" id="findSizeBar">
   <h3>Find my size in another brand</h3>
   <div class="row">
@@ -705,6 +746,8 @@
   <div class="find-size-result" id="findSizeResult"></div>
   <div class="find-size-error" id="findSizeError"></div>
 </div>
+-->
+
 <div class="passport">
   <div class="passport-inner">
     <div class="passport-cover">
@@ -802,11 +845,21 @@
       <div class="passport-id" id="successEmail"></div>
       <p style="margin-top:18px;font-size:12px;color:#aaa">Return anytime to update your stamps</p>
       <button type="button" class="nav-btn primary" id="backToStampsBtn" style="margin-top:24px">Manage my stamps</button>
+      <!-- Brands You'll Likely Fit — gated as Coming Soon. Backend recommendation logic
+           is intact; this UI is hidden until the passport graph is dense enough.
+           To re-enable: remove the .coming-soon block and restore display logic. -->
+      <div class="discover-brands coming-soon" id="discoverBrands" style="display:block">
+        <h3>Brands you'll likely fit</h3>
+        <div class="coming-soon-badge">Coming soon</div>
+        <div class="sub">Cross-brand recommendations need a critical mass of stamped passports first. Yours helps us get there.</div>
+      </div>
+      <!-- Original interactive markup, preserved for re-enablement:
       <div class="discover-brands" id="discoverBrands" style="display:none">
         <h3>Brands you'll likely fit</h3>
         <div class="sub" id="discoverBrandsSub">Based on your stamps — brands you don't own yet:</div>
         <div id="discoverBrandsList"></div>
       </div>
+      -->
     </div>
   </div>
 </div>
@@ -1168,7 +1221,15 @@
     var typed = (document.getElementById("email").value || "").trim().toLowerCase();
     return typed || null;
   }
+  // Feature flag — Find My Size + Brands You'll Likely Fit are gated as
+  // "Coming Soon" until the passport graph is dense enough for trustworthy
+  // recommendations. Backend endpoints (passportRecs.ts, recommend.ts) remain
+  // intact. To re-enable: set FIND_MY_SIZE_ENABLED = true and restore the
+  // commented-out HTML markup for #findSizeBar and #discoverBrands.
+  var FIND_MY_SIZE_ENABLED = false;
+
   function setFindSizeVisibility() {
+    if (!FIND_MY_SIZE_ENABLED) return;
     var bar = document.getElementById("findSizeBar");
     if (!bar) return;
     if (getFindSizeContextEmail()) bar.classList.add("open");
@@ -1178,6 +1239,7 @@
   var emailField = document.getElementById("email");
   if (emailField) emailField.addEventListener("blur", setFindSizeVisibility);
 
+  if (FIND_MY_SIZE_ENABLED) {
   document.getElementById("findSizeBtn").addEventListener("click", function() {
     var brand = document.getElementById("findSizeBrand").value.trim();
     var email = getFindSizeContextEmail();
@@ -1244,11 +1306,15 @@
   document.getElementById("findSizeBrand").addEventListener("keydown", function(e) {
     if (e.key === "Enter") { e.preventDefault(); document.getElementById("findSizeBtn").click(); }
   });
+  } // end FIND_MY_SIZE_ENABLED block
 
   // ──────────────────────────────────────────────────────────────────
   // Discover Brands — populates after passport save
+  // (gated by FIND_MY_SIZE_ENABLED — early-returns when disabled so the
+  // Coming Soon placeholder remains visible)
   // ──────────────────────────────────────────────────────────────────
   function loadDiscoverBrands(email) {
+    if (!FIND_MY_SIZE_ENABLED) return;
     var box = document.getElementById("discoverBrands");
     var list = document.getElementById("discoverBrandsList");
     if (!box || !list) return;
